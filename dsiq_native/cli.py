@@ -156,6 +156,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mv.add_argument("project_directory")
     mv.add_argument("--tolerance",type=float,default=.0001)
+    sd = sub.add_parser(
+        "dataset-generate", help="Generate measured CPU Bullet RGB-D/segmentation dataset"
+    )
+    sd.add_argument("output_directory")
+    sd.add_argument("--frames",type=int,default=8)
+    sd.add_argument("--seed",type=int,default=1007)
+    sd.add_argument("--width",type=int,default=160)
+    sd.add_argument("--height",type=int,default=120)
+    sd.add_argument("--boxes",type=int,default=3)
+    sd.add_argument("--steps",type=int,default=72)
+    sv = sub.add_parser(
+        "dataset-verify",help="Verify every synthetic image and depth file SHA-256"
+    )
+    sv.add_argument("directory")
     return p
 
 
@@ -164,7 +178,20 @@ def main(argv: list[str] | None = None) -> int:
     try:
         command = args.command
         code = 0
-        if command == "hardware":
+        if command == "dataset-generate":
+            from .synthetic_dataset import DatasetConfig, generate_dataset
+            result=generate_dataset(
+                args.output_directory,
+                DatasetConfig(
+                    frames=args.frames,seed=args.seed,
+                    width=args.width,height=args.height,
+                    boxes=args.boxes,settle_steps=args.steps,
+                ),
+            )
+        elif command == "dataset-verify":
+            from .synthetic_dataset import validate_dataset
+            result=validate_dataset(args.directory)
+        elif command == "hardware":
             result = inspect_device().as_dict()
         elif command == "validate-asset":
             check = validate_asset(args.manifest)

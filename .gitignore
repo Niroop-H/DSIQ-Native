@@ -1,0 +1,31 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.coverage
+logs/
+*.log
+*.tmp
+*.bak
+.omniverse/
+_exts/
+_kit/
+generated/
+# Do not commit customer geometry or licensed/OEM CAD by default.
+*.step
+*.stp
+*.iges
+*.igs
+*.fbx
+*.glb
+*.gltf
+*.usdc
+*.usdz
+# USD ASCII examples must be deliberately reviewed before committing.
+examples/local-*
+.DS_Store
+Thumbs.db

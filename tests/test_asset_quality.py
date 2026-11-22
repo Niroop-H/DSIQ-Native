@@ -68,5 +68,29 @@ class AssetValidationTests(unittest.TestCase):
         self.assertFalse(validate_asset(self.path).valid_for_import)
 
 
+    def test_oem_visual_asset_requires_explicit_review(self):
+        self.manifest["asset_class"] = "oem_verified"
+        self.save()
+        result = validate_asset(self.path)
+        self.assertFalse(result.valid_for_import)
+        self.assertTrue(any("visual_review" in error for error in result.errors))
+
+    def test_review_evidence_record_is_required_and_distinct_from_physics(self):
+        self.manifest["asset_class"] = "engineering_reference"
+        (self.base / "REVIEW.txt").write_text(
+            "Unit test document, NOT manufacturer qualification", encoding="utf-8"
+        )
+        self.manifest["visual_review"] = {
+            "approved": True,
+            "reviewer": "Unit Test",
+            "reviewed_against": "local://test-reference",
+            "evidence_file": "REVIEW.txt",
+        }
+        self.save()
+        result = validate_asset(self.path)
+        self.assertTrue(result.valid_for_import, result.errors)
+        self.assertFalse(result.simulation_qualified)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -304,19 +304,30 @@ class BulletPlayground:
                 if joint_type in (p.JOINT_REVOLUTE, p.JOINT_PRISMATIC):
                     lower = float(info[8])
                     upper = float(info[9])
+                    # Bullet's jointInfo indexes 10/11 contain actual URDF
+                    # effort and speed limits. Never silently apply arbitrary
+                    # 50N motor force to manufacturer equipment.
+                    effort = float(info[10])
+                    speed = float(info[11])
+                    if not math.isfinite(effort) or effort <= 0 or not math.isfinite(speed) or speed <= 0:
+                        raise ValueError(
+                            f"URDF joint {name} has missing/nonpositive effort or speed limits"
+                        )
                     p.setJointMotorControl2(
                         body_id, index, p.POSITION_CONTROL,
-                        targetPosition=0.0, force=50.0,
+                        targetPosition=0.0, force=effort, maxVelocity=speed,
                         physicsClientId=self.client,
                     )
                 else:
-                    lower = upper = None
+                    lower = upper = effort = speed = None
                 joints.append({
                     "joint_index": index,
                     "name": name,
                     "type": int(joint_type),
                     "lower": lower,
                     "upper": upper,
+                    "max_effort": effort,
+                    "max_velocity": speed,
                 })
             result = {
                 "asset_id": asset_id,
@@ -359,7 +370,7 @@ class BulletPlayground:
             robot["body_id"], j["joint_index"],
             self.p.POSITION_CONTROL,
             targetPosition=float(target),
-            force=50.0, maxVelocity=2.0,
+            force=j["max_effort"], maxVelocity=j["max_velocity"],
             physicsClientId=self.client,
         )
         return {

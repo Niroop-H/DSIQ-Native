@@ -123,6 +123,20 @@ def build_parser() -> argparse.ArgumentParser:
     tracking.add_argument("--goal", nargs=6, type=float, required=True)
     tracking.add_argument("--duration", type=float, default=None)
     tracking.add_argument("--record-every", type=int, default=20)
+    sub.add_parser(
+        "physics-verify",
+        help="Run actual Bullet gravity, contact, torque and repeatability acceptance fixtures"
+    )
+    make = sub.add_parser("machine-create",help="Design a functional parametric XYZ gantry")
+    make.add_argument("output_directory")
+    make.add_argument("--name",default="dsiq_xyz_inspection_gantry")
+    make.add_argument("--x-travel",type=float,default=1.2)
+    make.add_argument("--y-travel",type=float,default=.8)
+    make.add_argument("--z-travel",type=float,default=.45)
+    make.add_argument("--height",type=float,default=1.3)
+    build = sub.add_parser("machine-build",help="Rebuild URDF from an edited machine design JSON")
+    build.add_argument("design_json")
+    build.add_argument("output_directory")
     return p
 
 
@@ -184,6 +198,21 @@ def main(argv: list[str] | None = None) -> int:
                 max_iterations=args.max_iterations,
             ).as_dict()
             code = 0 if result["converged"] else 3
+        elif command == "physics-verify":
+            from .physics_benchmarks import run_physics_suite
+            result = run_physics_suite()
+            code = 0 if result["passed"] else 3
+        elif command == "machine-create":
+            from .machine_designer import MachineDesign, save_project
+            spec = MachineDesign(
+                asset_id=args.name, x_travel_m=args.x_travel,
+                y_travel_m=args.y_travel, z_travel_m=args.z_travel,
+                clearance_height_m=args.height,
+            )
+            result = save_project(spec, args.output_directory)
+        elif command == "machine-build":
+            from .machine_designer import load_design, save_project
+            result = save_project(load_design(args.design_json), args.output_directory)
         elif command == "robot-plan":
             from .trajectory import plan_joint_trajectory
             path = plan_joint_trajectory(

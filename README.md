@@ -26,7 +26,7 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 - Python unit/integration tests and GitHub CI scaffolding.
 - Competitive-feature, hardware and engineering-acceptance specifications.
 
-**Not yet built/qualified:** standalone RTX rendering integration, measured PhysX articulation/robot simulation acceptance on user hardware, URDF/MJCF import, ROS 2 bridges, validated robot dynamics, RGB/depth/RTX sensor stack, detailed manufacturer-approved CAD models, production Windows packaging. These are explicit milestones, not hidden stubs labeled complete.
+**Not yet built/qualified:** standalone RTX rendering integration, validated PhysX articulation simulation on the RTX 3050, MJCF import, ROS 2 bridges, industry-calibrated robot dynamics, RTX-accurate RGB/depth sensors, realistic sensor noise calibration, detailed approved OEM CAD libraries, and production Windows installers. Actual CPU Bullet RGB-D/LiDAR and verified local URDF inspection/import exist, but they are not RTX or physically calibrated replacements. These are explicit milestones, not hidden stubs labeled complete.
 
 ## Reference Robot Trajectory Programming
 

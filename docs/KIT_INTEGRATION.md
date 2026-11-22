@@ -14,6 +14,14 @@ This repo contains only DSIQ-authored extension and app descriptors; it does not
 .\omni.app.editor.base.bat --ext-folder "C:\path\DSIQ-Native\source\extensions" --enable dsiq.studio
 ~~~
 
+Alternatively, use the built-in explicit low-memory launch guard (from the repository root):
+
+~~~powershell
+.\scripts\launch-kit.ps1 -KitExecutable "C:\path\to\omni.app.editor.base.bat" -AllowExperimental
+~~~
+
+The guard detects actual GPU VRAM and system RAM before launching. It does not make unsupported NVIDIA Kit configurations officially compatible.
+
 4. Open a real OpenUSD stage through Kit's File menu, then use the DSIQ Native Scene Diagnostics window to inspect the current stage.
 5. The file source/apps/dsiq.native.kit is an **experimental Kit app definition** that requires launch/extension validation with the chosen SDK before use or redistribution.
 

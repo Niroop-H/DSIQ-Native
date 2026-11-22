@@ -19,6 +19,7 @@ class AssetValidationTests(unittest.TestCase):
         sha = hashlib.sha256((self.base / "source.usda").read_bytes()).hexdigest()
         self.manifest = {
             "schema": "dsiq-asset-v1",
+            "asset_class": "test_fixture",
             "asset_id": "test_machine_fixture",
             "manufacturer": "Fixture Author",
             "model": "Unit Test Only",

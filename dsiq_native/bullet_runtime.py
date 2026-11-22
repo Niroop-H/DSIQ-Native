@@ -85,6 +85,7 @@ class BulletPlayground:
         self.payloads: list[int] = []
         self.ground = -1
         self._targets = (0.,) * 6
+        self.imported_robots: dict[str, dict] = {}
         try:
             self._initialize()
         except Exception:
@@ -253,6 +254,121 @@ class BulletPlayground:
         self.payloads.append(body)
         return body
 
+    def import_urdf_robot(
+        self, manifest_path: str,
+        *, base_position_m: Sequence[float] = (-1.0, -1.0, 0.0),
+    ) -> dict:
+        """Load an authorized, validated URDF into the actual Bullet world.
+
+        No generic substitute CAD is generated. The source is required to be
+        a real local URDF and all references are checked before Bullet parses it.
+        Manufacturer calibration is never inferred from successful load.
+        """
+        from .urdf_bridge import validate_robot_manifest
+        from pathlib import Path
+
+        if len(self.imported_robots) >= 4:
+            raise ValueError("Constrained workcell allows no more than 4 imported robot assets")
+        xyz = tuple(float(v) for v in base_position_m)
+        if len(xyz) != 3 or any(not math.isfinite(v) or abs(v) > 20.0 for v in xyz):
+            raise ValueError("URDF base position must have three finite values in +/-20m")
+        manifest, inspection = validate_robot_manifest(manifest_path)
+        asset_id = manifest["asset_id"]
+        if asset_id in self.imported_robots:
+            raise FileExistsError("Robot asset already loaded: " + asset_id)
+        path = inspection.path
+        p = self.p
+        try:
+            body_id = p.loadURDF(
+                path, basePosition=list(xyz),
+                useFixedBase=True,
+                flags=p.URDF_USE_INERTIA_FROM_FILE,
+                physicsClientId=self.client,
+            )
+        except Exception as exc:
+            raise RuntimeError("Bullet could not load licensed local URDF: " + str(exc)) from exc
+        if body_id < 0:
+            raise RuntimeError("Bullet URDF importer returned an invalid robot handle")
+        try:
+            observed_joint_count = p.getNumJoints(body_id, physicsClientId=self.client)
+            if observed_joint_count != len(inspection.joints):
+                raise ValueError(
+                    f"Bullet imported {observed_joint_count} joints but "
+                    f"URDF declares {len(inspection.joints)}"
+                )
+            joints = []
+            for index in range(observed_joint_count):
+                info = p.getJointInfo(body_id, index, physicsClientId=self.client)
+                joint_type = info[2]
+                name = info[1].decode("utf-8", "replace")
+                if joint_type in (p.JOINT_REVOLUTE, p.JOINT_PRISMATIC):
+                    lower = float(info[8])
+                    upper = float(info[9])
+                    p.setJointMotorControl2(
+                        body_id, index, p.POSITION_CONTROL,
+                        targetPosition=0.0, force=50.0,
+                        physicsClientId=self.client,
+                    )
+                else:
+                    lower = upper = None
+                joints.append({
+                    "joint_index": index,
+                    "name": name,
+                    "type": int(joint_type),
+                    "lower": lower,
+                    "upper": upper,
+                })
+            result = {
+                "asset_id": asset_id,
+                "body_id": body_id,
+                "robot_name": inspection.robot_name,
+                "asset_class": manifest["asset_class"],
+                "joint_count": observed_joint_count,
+                "joints": joints,
+                "root_link": inspection.root_link,
+                "physically_qualified": False,
+                "warnings": list(inspection.warnings),
+            }
+            self.imported_robots[asset_id] = result
+            return result
+        except Exception:
+            p.removeBody(body_id, physicsClientId=self.client)
+            raise
+
+    def command_imported_joint(self, asset_id: str, joint_name: str, target: float):
+        """Issue a bounded actual URDF motor target in radians or meters."""
+        robot = self.imported_robots.get(asset_id)
+        if robot is None:
+            raise ValueError("Imported URDF asset not found")
+        matching = [j for j in robot["joints"] if j["name"] == joint_name]
+        if len(matching) != 1:
+            raise ValueError("Joint name not found or ambiguous")
+        j = matching[0]
+        if j["lower"] is None:
+            raise ValueError("Joint has no revolute/prismatic motor for position control")
+        if not isinstance(target, (int,float)) or not math.isfinite(target):
+            raise ValueError("Target must be finite")
+        # Continuous revolute joints may have lower>=upper; bound command
+        # amplitude and require URDF limits for noncontinuous joints.
+        lo, hi = j["lower"], j["upper"]
+        if lo <= hi and (target < lo - 1e-9 or target > hi + 1e-9):
+            raise ValueError(f"Target {target} violates physical limits [{lo},{hi}]")
+        if abs(target) > 2 * math.pi * 4:
+            raise ValueError("Target exceeds conservative absolute command bound")
+        self.p.setJointMotorControl2(
+            robot["body_id"], j["joint_index"],
+            self.p.POSITION_CONTROL,
+            targetPosition=float(target),
+            force=50.0, maxVelocity=2.0,
+            physicsClientId=self.client,
+        )
+        return {
+            "asset_id": asset_id, "joint": joint_name,
+            "target": float(target),
+            "units": "meters" if j["type"] == self.p.JOINT_PRISMATIC else "radians",
+            "physically_qualified": False,
+        }
+
     def step(self, count: int = 1):
         if type(count) is not int or not 1 <= count <= 50000:
             raise ValueError("step count must be integer in [1,50000]")
@@ -303,6 +419,26 @@ class BulletPlayground:
             "payload_positions_m": [list(v) for v in boxes],
             "num_contacts": len(p.getContactPoints(physicsClientId=self.client)),
             "physically_qualified": False,
+            "imported_robots": [
+                {
+                    "asset_id": asset_id,
+                    "body_id": model["body_id"],
+                    "asset_class": model["asset_class"],
+                    "joint_states": [
+                        {
+                            "name": joint["name"],
+                            "index": joint["joint_index"],
+                            "position": float(p.getJointState(
+                                model["body_id"], joint["joint_index"],
+                                physicsClientId=self.client,
+                            )[0]),
+                        }
+                        for joint in model["joints"]
+                    ],
+                    "physically_qualified": False,
+                }
+                for asset_id, model in self.imported_robots.items()
+            ],
         }
 
     def run_interactive(self):

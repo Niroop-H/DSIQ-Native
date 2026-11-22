@@ -97,6 +97,20 @@ def build_parser() -> argparse.ArgumentParser:
     studio.add_argument("--width", type=int, default=480)
     studio.add_argument("--height", type=int, default=360)
     studio.add_argument("--fps", type=int, default=12)
+    read_urdf = sub.add_parser(
+        "urdf-inspect", help="Inspect real local URDF topology, geometry and joint limits"
+    )
+    read_urdf.add_argument("urdf_file")
+    imported = sub.add_parser(
+        "bullet-urdf", help="Load a rights-verified URDF into actual Bullet physics and run it"
+    )
+    imported.add_argument("manifest", help="Local dsiq-robot-urdf-v1 provenance manifest")
+    imported.add_argument("--steps", type=int, default=240)
+    imported.add_argument("--joint", type=str, default=None)
+    imported.add_argument(
+        "--target", type=float, default=None,
+        help="Position target in radians (revolute) or meters (prismatic)"
+    )
     return p
 
 
@@ -158,6 +172,28 @@ def main(argv: list[str] | None = None) -> int:
                 max_iterations=args.max_iterations,
             ).as_dict()
             code = 0 if result["converged"] else 3
+        elif command == "urdf-inspect":
+            from .urdf_bridge import inspect_urdf
+            result = inspect_urdf(args.urdf_file).as_dict()
+        elif command == "bullet-urdf":
+            from .bullet_runtime import BulletPlayground, BulletSettings
+            if not 1 <= args.steps <= 50000:
+                raise ValueError("--steps must be between 1 and 50000")
+            if (args.joint is None) != (args.target is None):
+                raise ValueError("--joint and --target must be supplied together")
+            with BulletPlayground(BulletSettings(payload_count=0)) as world:
+                import_result = world.import_urdf_robot(args.manifest)
+                if args.joint is not None:
+                    world.command_imported_joint(
+                        import_result["asset_id"], args.joint, args.target
+                    )
+                report = world.step(args.steps)
+                result = {
+                    "import": import_result,
+                    "runtime": report,
+                    "note": "True Bullet simulation with user-authored URDF; "
+                            "no OEM/physics calibration is inferred.",
+                }
         elif command == "studio":
             from .desktop_studio import launch_studio
             result = launch_studio(

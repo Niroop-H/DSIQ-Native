@@ -1,0 +1,13 @@
+[package]
+version = "0.1.0"
+title = "DSIQ Native - OpenUSD Scene Diagnostics"
+description = "Native USD inspection and simulation evidence gates for DSIQ engineering."
+category = "Simulation"
+keywords = ["dsiq", "openusd", "industrial", "engineering", "diagnostics"]
+
+[dependencies]
+"omni.kit.uiapp" = {}
+"omni.usd" = {}
+
+[[python.module]]
+name = "dsiq.studio"

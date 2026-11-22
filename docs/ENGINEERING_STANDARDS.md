@@ -6,6 +6,16 @@ Each *detailed* asset must have approved real CAD/OpenUSD geometry (or explicitl
 
 The initial DSIQ manifest validator checks local integrity, provenance metadata and evidence presence. It is **not** visual inspection, industrial acceptance or proof of CAD accuracy. Imported USD must be parsed and its declared subassemblies actually found.
 
+## Source Inertia and Motor Constraints
+
+Before imported robot geometry is passed to Bullet, URDF inertial tensors
+are checked for positive-definite symmetric structure and necessary
+rigid-body moment inequalities. Every movable URDF joint must declare
+positive effort and speed limits; the engine uses these actual values
+rather than arbitrary defaults. These checks are necessary, but cannot
+validate the accuracy of unmeasured manufacturer masses, contacts,
+mechanism compliance, friction or real controller actuation.
+
 ## No claim of perfect physics without experiments
 
 Every mechanical model needs independent analytic/experimental test fixtures with units, tolerance, instrument uncertainty, solver settings, timestep convergence and error curves. Validate contacts, joint limits, friction, sustained constraints, collision dynamics, energy behavior, robot trajectories and sensor timing where supported. Fluids, deformables, thermals and semiconductor processes need *separate* verified models.

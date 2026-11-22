@@ -55,6 +55,30 @@ def _parse_numbers(s: str, count: int, *, positive=False) -> tuple[float, ...]:
     return values
 
 
+def _verify_inertia_tensor(elements: dict[str, float], link_name: str) -> None:
+    """Necessary rigid-body inertia feasibility checks, not calibrated masses.
+
+    An inertia tensor is symmetric positive-definite, and central moments
+    of inertia obey the principal moment triangle inequalities. The latter
+    are checked for diagonal elements in the provided inertial frame;
+    rotation-invariant full feasibility requires deeper eigenanalysis.
+    """
+    xx,yy,zz=(elements[k] for k in ("ixx","iyy","izz"))
+    xy,xz,yz=(elements[k] for k in ("ixy","ixz","iyz"))
+    determinant=xx*(yy*zz-yz*yz)-xy*(xy*zz-xz*yz)+xz*(xy*yz-xz*yy)
+    if not (xx>0 and yy>0 and zz>0 and xx*yy-xy*xy>1e-14
+            and determinant>1e-16):
+        raise ValueError(
+            f"Link {link_name} has a non-positive-definite inertia tensor"
+        )
+    max_diag=max(xx,yy,zz)
+    tol=1e-9*max(1.,max_diag)
+    if xx+yy+tol<zz or xx+zz+tol<yy or yy+zz+tol<xx:
+        raise ValueError(
+            f"Link {link_name} violates rigid-body inertia moment inequalities"
+        )
+
+
 @dataclass(frozen=True)
 class URDFJoint:
     name: str
@@ -141,10 +165,16 @@ def inspect_urdf(path: str | Path) -> URDFInspection:
             inertia = inertial.find("inertia")
             if inertia is None:
                 raise ValueError(f"Missing inertia tensor for {name}")
+            tensor={}
             for component in ("ixx", "iyy", "izz"):
-                _parse_numbers(inertia.attrib.get(component, ""), 1, positive=True)
+                tensor[component]=_parse_numbers(
+                    inertia.attrib.get(component, ""), 1, positive=True
+                )[0]
             for component in ("ixy", "ixz", "iyz"):
-                _parse_numbers(inertia.attrib.get(component, ""), 1)
+                tensor[component]=_parse_numbers(
+                    inertia.attrib.get(component, ""), 1
+                )[0]
+            _verify_inertia_tensor(tensor,name)
         for component in ("visual", "collision"):
             for sub in link.findall(component):
                 origin = sub.find("origin")
@@ -217,10 +247,15 @@ def inspect_urdf(path: str | Path) -> URDFInspection:
             upper = _parse_numbers(limit.attrib.get("upper", ""), 1)[0]
             if lower >= upper:
                 raise ValueError(f"Joint {name} has invalid limits")
-        if kind != "fixed" and limit is not None:
+        if kind != "fixed":
+            if limit is None:
+                raise ValueError(
+                    f"Joint {name} requires explicit effort and velocity limits"
+                )
             for key in ("effort","velocity"):
-                if key in limit.attrib:
-                    _parse_numbers(limit.attrib[key], 1, positive=True)
+                _parse_numbers(
+                    limit.attrib.get(key, ""),1,positive=True
+                )
         parsed.append(URDFJoint(name,kind,p_name,c_name,lower,upper,axis))
 
     roots = link_names - set(child_to_parent)

@@ -137,6 +137,25 @@ class UrdfValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "parent/child"):
             inspect_urdf(self.source)
 
+    def test_unphysical_inertia_tensor_is_rejected_before_bullet(self):
+        source=TEST_URDF.replace('ixy="0" ixz="0" iyy="0.1"',
+                                 'ixy="1.0" ixz="0" iyy="0.1"')
+        self.source.write_text(source,encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,"positive-definite"):
+            inspect_urdf(self.source)
+
+    def test_unphysical_inertia_triangle_inequality_is_rejected(self):
+        source=TEST_URDF.replace('izz="0.1"','izz="10.0"')
+        self.source.write_text(source,encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,"inertia moment"):
+            inspect_urdf(self.source)
+
+    def test_joint_without_physical_motor_effort_is_rejected(self):
+        source=TEST_URDF.replace('effort="30"','')
+        self.source.write_text(source,encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,"finite numeric"):
+            inspect_urdf(self.source)
+
     def test_visual_oem_tag_requires_real_mesh_and_review(self):
         self.manifest["asset_class"] = "oem_verified"
         self.save()

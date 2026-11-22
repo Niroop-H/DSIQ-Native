@@ -28,6 +28,13 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 
 **Not yet built/qualified:** standalone RTX rendering integration, validated PhysX articulation simulation on the RTX 3050, MJCF import, ROS 2 bridges, industry-calibrated robot dynamics, RTX-accurate RGB/depth sensors, realistic sensor noise calibration, detailed approved OEM CAD libraries, and production Windows installers. Actual CPU Bullet RGB-D/LiDAR and verified local URDF inspection/import exist, but they are not RTX or physically calibrated replacements. These are explicit milestones, not hidden stubs labeled complete.
 
+## Inertia and Actuator Import Safety
+
+Imported URDF links now require a physically feasible positive-definite
+inertia tensor and consistency checks on inertia moments. Movable joints
+require explicit positive effort and speed limits before import. These
+are minimum numerical safeguards, not evidence of calibrated OEM dynamics.
+
 ## Physics Assurance + User Machine Lab + Free Camera
 
 New development tools support measurable physical reference experiments,

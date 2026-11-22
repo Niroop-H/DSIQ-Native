@@ -28,6 +28,23 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 
 **Not yet built/qualified:** standalone RTX rendering integration, measured PhysX articulation/robot simulation acceptance on user hardware, URDF/MJCF import, ROS 2 bridges, validated robot dynamics, RGB/depth/RTX sensor stack, detailed manufacturer-approved CAD models, production Windows packaging. These are explicit milestones, not hidden stubs labeled complete.
 
+## Reference Robot Trajectory Programming
+
+The Reference6R can now generate **joint-limit-aware quintic trajectories**,
+using analytically checked speed and acceleration bounds at fixed
+1/240-second simulation resolution. These trajectories can be executed
+using real Bullet motor control, with measured joint tracking residuals
+and contact counts recorded rather than claiming perfect motion.
+
+~~~powershell
+python -m dsiq_native robot-plan --start 0 0 0 0 0 0 --goal 10 -20 25 5 -8 4
+python -m dsiq_native bullet-trajectory --goal 10 -20 25 5 -8 4
+~~~
+
+The planner is not collision-free, torque-certified or OEM-calibrated;
+its limits are documented DSIQ reference values only.
+See **[Trajectory Programming and Tracking](docs/TRAJECTORY_PLANNER.md)**.
+
 ## Licensed industrial URDF robot support
 
 DSIQ now inspects actual local **URDF robot assemblies**, validates links,

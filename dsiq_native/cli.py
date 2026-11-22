@@ -111,6 +111,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--target", type=float, default=None,
         help="Position target in radians (revolute) or meters (prismatic)"
     )
+    plan = sub.add_parser(
+        "robot-plan", help="Design bounded six-joint quintic trajectory (angles in degrees)"
+    )
+    plan.add_argument("--start", nargs=6, type=float, required=True)
+    plan.add_argument("--goal", nargs=6, type=float, required=True)
+    plan.add_argument("--duration", type=float, default=None)
+    tracking = sub.add_parser(
+        "bullet-trajectory", help="Actually run planned Reference6R joint trajectory in Bullet"
+    )
+    tracking.add_argument("--goal", nargs=6, type=float, required=True)
+    tracking.add_argument("--duration", type=float, default=None)
+    tracking.add_argument("--record-every", type=int, default=20)
     return p
 
 
@@ -172,6 +184,30 @@ def main(argv: list[str] | None = None) -> int:
                 max_iterations=args.max_iterations,
             ).as_dict()
             code = 0 if result["converged"] else 3
+        elif command == "robot-plan":
+            from .trajectory import plan_joint_trajectory
+            path = plan_joint_trajectory(
+                [math.radians(v) for v in args.start],
+                [math.radians(v) for v in args.goal],
+                duration_s=args.duration,
+            )
+            result = path.summary()
+            result["start_degrees"] = args.start
+            result["goal_degrees"] = args.goal
+        elif command == "bullet-trajectory":
+            from .trajectory import plan_joint_trajectory, replay_in_bullet
+            from .bullet_runtime import BulletPlayground, BulletSettings
+            goal = [math.radians(v) for v in args.goal]
+            plan = plan_joint_trajectory(
+                (0.,)*6, goal, duration_s=args.duration,
+            )
+            with BulletPlayground(BulletSettings(payload_count=0)) as world:
+                result = {
+                    "plan": plan.summary(),
+                    "tracking": replay_in_bullet(
+                        world, plan, record_every=args.record_every,
+                    ),
+                }
         elif command == "urdf-inspect":
             from .urdf_bridge import inspect_urdf
             result = inspect_urdf(args.urdf_file).as_dict()

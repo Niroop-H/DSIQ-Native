@@ -39,6 +39,7 @@ python -m dsiq_native machine-build my-gantry/machine.design.json my-gantry-v2
 # Inspect actual joint limits and execute a 350 mm X-axis command.
 python -m dsiq_native urdf-inspect my-gantry-v2/machine.urdf
 python -m dsiq_native bullet-urdf my-gantry-v2/machine.manifest.json --joint actuator_x --target 0.35 --steps 480
+python -m dsiq_native machine-verify my-gantry-v2
 ~~~
 
 Generated files include editable JSON, valid URDF, a SHA-256 provenance
@@ -46,6 +47,13 @@ manifest and a source-rights file. These are original mechanically useful
 **parametric reference parts**, not OEM machine CAD. Real manufacturer
 geometry still requires licensed CAD sources, visual QA, true measured
 inertias, collisions and independent physical validation.
+
+The machine-verify command reads three different actuator configurations
+and checks that the actual imported Bullet tool-flange world position
+matches the machine's independent analytic position equation. The
+desktop rejects a generated machine whose frame check fails and reports
+the residual. This is an important assembly correctness check, but not
+motor dynamics or OEM commissioning.
 
 Imported URDF motor force/velocity is now taken from the source joint
 metadata, not an arbitrary fixed force.

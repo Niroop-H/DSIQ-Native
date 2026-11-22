@@ -39,6 +39,7 @@ python -m pip install -e ".[robotics]"
 python -m dsiq_native physics-verify
 python -m dsiq_native machine-create user-gantry --name user_xyz_gantry --x-travel 1.2
 python -m dsiq_native bullet-urdf user-gantry/machine.manifest.json --joint actuator_x --target 0.3 --steps 480
+python -m dsiq_native machine-verify user-gantry
 python -m dsiq_native environment-render robotics_cell --png reference.png
 python -m dsiq_native environment-usd cleanroom_bay cleanroom.usda
 python -m dsiq_native studio --theme black

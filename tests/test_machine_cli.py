@@ -47,6 +47,18 @@ class RealEnvironmentCliTests(unittest.TestCase):
             self.assertGreater(result["environment"]["collision_parts"],20)
             self.assertEqual(result["image"]["renderer"],"PYBULLET_TINY_RENDERER_CPU")
 
+    def test_gantry_machine_verify_returns_actual_bullet_frame_residuals(self):
+        with TemporaryDirectory() as tmp:
+            folder=Path(tmp)/"custom_build"
+            created,data=call("machine-create",folder,
+                "--name","test_cli_gantry","--x-travel","1.0")
+            self.assertEqual(created,0,data)
+            status,report=call("machine-verify",folder)
+            self.assertEqual(status,0,report)
+            self.assertTrue(report["passed"])
+            self.assertEqual(len(report["samples"]),3)
+            self.assertFalse(report["physically_qualified"])
+
     def test_reference_physics_verification_cli(self):
         code,result=call("physics-verify")
         self.assertEqual(code,0,result)

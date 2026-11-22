@@ -150,6 +150,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     env_usd.add_argument("preset",choices=["open","robotics_cell","cleanroom_bay","logistics_bay"])
     env_usd.add_argument("scene_file")
+    mv = sub.add_parser(
+        "machine-verify",
+        help="Independently check 3-axis machine URDF link frames against actual Bullet FK"
+    )
+    mv.add_argument("project_directory")
+    mv.add_argument("--tolerance",type=float,default=.0001)
     return p
 
 
@@ -211,6 +217,12 @@ def main(argv: list[str] | None = None) -> int:
                 max_iterations=args.max_iterations,
             ).as_dict()
             code = 0 if result["converged"] else 3
+        elif command == "machine-verify":
+            from .gantry_assurance import verify_gantry_in_bullet
+            result=verify_gantry_in_bullet(
+                args.project_directory,tolerance_m=args.tolerance
+            )
+            code=0 if result["passed"] else 3
         elif command == "environment-usd":
             from .bullet_runtime import BulletPlayground, BulletSettings
             from .environments import ReferenceEnvironment

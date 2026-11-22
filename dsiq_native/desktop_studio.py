@@ -746,6 +746,15 @@ class DesktopStudio:
         return report
 
     def _use_machine_project(self, output):
+        from .gantry_assurance import verify_gantry_in_bullet
+        kinematics=verify_gantry_in_bullet(
+            Path(output["manifest"]).parent
+        )
+        if not kinematics["passed"]:
+            raise RuntimeError(
+                "Designed machine failed independent Bullet versus analytic "
+                "tool-frame verification. Refusing studio import."
+            )
         report=self.world.import_urdf_robot(
             output["manifest"],base_position_m=(-.7,-1.6,0.)
         )
@@ -753,7 +762,8 @@ class DesktopStudio:
         self._free_camera=FreeCamera.look_at((2.2,-4.,2.0),(-.7,-1.3,.9))
         self._status(
             f"Engineered XYZ machine project CREATED + ACTUALLY LOADED.\n"
-            f"ID {report['asset_id']}, links/joints {report['joint_count']}, "
+            f"ID {report['asset_id']}, joints {report['joint_count']}, "
+            f"independent kinematic residual {kinematics['max_error_m']:.7f}m, "
             "3 physical prismatic motors. Use Machine Lab > Command imported "
             "machine joint to move actuator_x / actuator_y / actuator_z.\n"
             "This is parametric reference geometry, not OEM CAD."

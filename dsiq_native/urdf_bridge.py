@@ -253,9 +253,11 @@ def inspect_urdf(path: str | Path) -> URDFInspection:
                     f"Joint {name} requires explicit effort and velocity limits"
                 )
             for key in ("effort","velocity"):
-                _parse_numbers(
-                    limit.attrib.get(key, ""),1,positive=True
-                )
+                if key not in limit.attrib:
+                    raise ValueError(
+                        f"Joint {name} missing required motor {key} limit"
+                    )
+                _parse_numbers(limit.attrib[key],1,positive=True)
         parsed.append(URDFJoint(name,kind,p_name,c_name,lower,upper,axis))
 
     roots = link_names - set(child_to_parent)

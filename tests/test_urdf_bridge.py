@@ -153,7 +153,7 @@ class UrdfValidationTests(unittest.TestCase):
     def test_joint_without_physical_motor_effort_is_rejected(self):
         source=TEST_URDF.replace('effort="30"','')
         self.source.write_text(source,encoding="utf-8")
-        with self.assertRaisesRegex(ValueError,"finite numeric"):
+        with self.assertRaisesRegex(ValueError,"missing required motor effort"):
             inspect_urdf(self.source)
 
     def test_visual_oem_tag_requires_real_mesh_and_review(self):

@@ -39,6 +39,23 @@ jobs:
       - run: python -m pip install -e ".[robotics]"
       - run: python -c "from pxr import Usd, UsdGeom, UsdPhysics; print('Pixar USD available')"
       - run: python -m unittest discover -s tests -v
+      - name: Generate actual reference scenes and user machine
+        run: |
+          mkdir -p build/reference-scenes
+          python -m dsiq_native environment-render robotics_cell --png build/reference-scenes/robotics.png
+          python -m dsiq_native environment-render cleanroom_bay --png build/reference-scenes/cleanroom.png
+          python -m dsiq_native environment-render logistics_bay --png build/reference-scenes/logistics.png
+          python -m dsiq_native environment-usd robotics_cell build/reference-scenes/robotics.usda
+          python -m dsiq_native environment-usd cleanroom_bay build/reference-scenes/cleanroom.usda
+          python -m dsiq_native environment-usd logistics_bay build/reference-scenes/logistics.usda
+          python -m dsiq_native machine-create build/reference-scenes/user-gantry --name review_gantry
+          python -m dsiq_native machine-verify build/reference-scenes/user-gantry
+      - name: Upload actual preview renders and OpenUSD reference scenes
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsiq-reference-scenes
+          path: build/reference-scenes/
+          retention-days: 7
 
   bullet-linux:
     runs-on: ubuntu-latest

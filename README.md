@@ -28,6 +28,25 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 
 **Not yet built/qualified:** standalone RTX rendering integration, measured PhysX articulation/robot simulation acceptance on user hardware, URDF/MJCF import, ROS 2 bridges, validated robot dynamics, RGB/depth/RTX sensor stack, detailed manufacturer-approved CAD models, production Windows packaging. These are explicit milestones, not hidden stubs labeled complete.
 
+## Licensed industrial URDF robot support
+
+DSIQ now inspects actual local **URDF robot assemblies**, validates links,
+joint topology, inertial properties, mesh references, source SHA-256 and
+license evidence, and can import approved source robots into real Bullet
+physics for joint actuation. The native desktop File menu includes
+**Import verified URDF robot** and **Control imported robot joint**.
+
+~~~powershell
+python -m dsiq_native urdf-inspect path/to/robot.urdf
+python -m dsiq_native bullet-urdf path/to/robot.manifest.json --joint elbow --target 0.3 --steps 480
+~~~
+
+Physical geometry must come from a genuine, legally usable source.
+Test fixtures are identified as such; no industrial model is fabricated
+or presented as manufacturer-certified. ROS package:// URIs, Xacro and
+untrusted plugins are rejected until an audited import pipeline exists.
+See **[Verified URDF imports](docs/URDF_ROBOTS.md)**.
+
 ## NEW — Standalone DSIQ Native Desktop Robotics Studio
 
 The project now also contains a self-contained, DSIQ-branded native desktop

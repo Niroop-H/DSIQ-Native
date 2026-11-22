@@ -31,6 +31,10 @@ Linux uses upstream PyBullet 3.2.7.
 
 ## Actual controls
 
+- File > Import verified URDF robot: load a real authorized robot URDF
+  and its actual collision geometry/axes through a SHA-256 and license
+  manifest gate. File > Control imported robot joint applies a bounded
+  real Bullet motor target by exact URDF joint name.
 - Scene: reset reference workcell; export OpenUSD reference schemas if
   Pixar USD is installed.
 - Simulation: Play, Pause, Step, fixed 1/240 s integrator in Bullet.

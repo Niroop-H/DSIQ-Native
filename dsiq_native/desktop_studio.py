@@ -347,6 +347,8 @@ class DesktopStudio:
         )
         file_menu = tk.Menu(menu, tearoff=False)
         file_menu.add_command(label="Reset reference workcell", command=lambda: self._safe(self.reset))
+        file_menu.add_command(label="Import verified URDF robot...", command=lambda: self._safe(self.import_verified_urdf))
+        file_menu.add_command(label="Control imported robot joint...", command=lambda: self._safe(self.drive_imported_joint))
         file_menu.add_command(label="Export OpenUSD reference scene", command=lambda: self._safe(self.export_usd))
         file_menu.add_command(label="Export physics JSON", command=lambda: self._safe(self.export_state))
         file_menu.add_command(label="Save current RGB image", command=lambda: self._safe(self.save_camera_png))
@@ -465,6 +467,72 @@ class DesktopStudio:
             )
         else:
             self._status("LiDAR scan: no geometric hits within 5m.")
+
+    def import_verified_urdf(self):
+        """Load actual authorized robot source with validation, not proxy CAD."""
+        manifest = self.filedialog.askopenfilename(
+            filetypes=[("DSIQ robot manifest", "*.json")],
+            title="Import rights-verified URDF robot manifest",
+        )
+        if not manifest:
+            return
+        report = self.world.import_urdf_robot(manifest)
+        self._orbit_distance = 3.8
+        self._orbit_center = (-0.35, -0.2, 0.5)
+        self._status(
+            f"Loaded actual licensed URDF: {report['robot_name']} / "
+            f"{report['asset_id']}.\n"
+            f"Bullet body #{report['body_id']}, joints: {report['joint_count']}.\n"
+            "No OEM physical calibration is implied; test with real supplier evidence."
+        )
+
+    def drive_imported_joint(self):
+        """Drive a selected imported robot joint by name and actual URDF limits."""
+        from tkinter import simpledialog
+        imported = self.world.imported_robots
+        if not imported:
+            raise ValueError("No imported robot loaded. Use File > Import verified URDF.")
+        available = list(imported)
+        if len(available) == 1:
+            asset_id = available[0]
+        else:
+            asset_id = simpledialog.askstring(
+                "Select imported robot", "Available asset IDs:\n" + "\n".join(available),
+                parent=self.root,
+            )
+        if asset_id is None:
+            return
+        if asset_id not in imported:
+            raise ValueError("Unknown imported robot asset ID")
+        joints = [j for j in imported[asset_id]["joints"] if j["lower"] is not None]
+        if not joints:
+            raise ValueError("Imported URDF has no controllable revolute/prismatic joints")
+        joint = simpledialog.askstring(
+            "Imported robot joint",
+            "Enter exact joint name:\n" + "\n".join(
+                f"{j['name']}: [{j['lower']:.3f}, {j['upper']:.3f}]" for j in joints
+            ),
+            parent=self.root,
+        )
+        if not joint:
+            return
+        selected = next((j for j in joints if j["name"] == joint), None)
+        if selected is None:
+            raise ValueError("Selected joint not present on imported robot")
+        unit = "meters" if selected["type"] == self.world.p.JOINT_PRISMATIC else "radians"
+        angle = simpledialog.askfloat(
+            "Drive imported joint",
+            f"Target for {joint} in {unit}:",
+            parent=self.root,
+        )
+        if angle is None:
+            return
+        result = self.world.command_imported_joint(asset_id, joint, angle)
+        self._status(
+            f"Actual Bullet motor command accepted: {asset_id}/{joint} = "
+            f"{result['target']:.4f} {result['units']}. "
+            "Dynamics remain unqualified for any physical robot."
+        )
 
     def export_state(self):
         path = self.filedialog.asksaveasfilename(

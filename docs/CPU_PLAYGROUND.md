@@ -111,3 +111,9 @@ precision, production timing guarantees or OEM manipulator equivalence.
 
 Official Bullet API:
 https://github.com/bulletphysics/bullet3
+
+## Real robot source interoperability
+
+A rights-verified user-owned URDF can now be inspected and loaded into
+Bullet for physically executed joint commands (not manufacturer calibration).
+See [URDF Robot Imports](URDF_ROBOTS.md). DSIQ does not distribute OEM CAD.

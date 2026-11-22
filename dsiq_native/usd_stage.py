@@ -149,6 +149,28 @@ def attach_asset(scene_file: str | Path, manifest_file: str | Path) -> dict:
         if not asset.GetPrimAtPath(part["prim_path"]).IsValid():
             raise ValueError(f"Expected physical subassembly not present in USD: {part['prim_path']}")
 
+    # A valid USD root or a named subassembly is not itself a 3D model.
+    # Reject empty transform hierarchies mislabeled as detailed equipment.
+    real_meshes = 0
+    real_triangles = 0
+    for source_prim in asset.Traverse():
+        if source_prim.IsA(UsdGeom.Mesh):
+            mesh = UsdGeom.Mesh(source_prim)
+            verts = mesh.GetPointsAttr().Get()
+            counts = mesh.GetFaceVertexCountsAttr().Get()
+            indices = mesh.GetFaceVertexIndicesAttr().Get()
+            if verts is not None and counts is not None and indices is not None:
+                if len(verts) >= 3 and len(indices) >= 3:
+                    tris = sum(max(0, int(n) - 2) for n in counts)
+                    if tris > 0:
+                        real_meshes += 1
+                        real_triangles += tris
+    if real_meshes == 0 or real_triangles == 0:
+        raise ValueError(
+            "USD source has no nonempty mesh topology; refusing a placeholder "
+            "hierarchy advertised as detailed equipment"
+        )
+
     scene_path = _existing_layer(scene_file)
     stage = _load(scene_path)
     if not math.isclose(float(UsdGeom.GetStageMetersPerUnit(stage)), source_units, rel_tol=0, abs_tol=1e-9):
@@ -172,4 +194,5 @@ def attach_asset(scene_file: str | Path, manifest_file: str | Path) -> dict:
     stage.GetRootLayer().Save()
     return {"scene": str(scene_path), "prim_path": target, "usd_reference": rel,
             "physics_qualification_metadata_only": report.simulation_qualified,
+            "mesh_count_at_import": real_meshes, "triangle_count_at_import": real_triangles,
             "warnings": list(report.warnings)}

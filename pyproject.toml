@@ -4,14 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dsiq-native"
-version = "0.1.0"
-description = "DSIQ Native OpenUSD industrial engineering foundation and asset quality gates"
+version = "0.2.0"
+description = "DSIQ Native OpenUSD industrial and robotics engineering foundation"
 requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
 usd = ["usd-core>=25.05"]
-dev = ["usd-core>=25.05"]
+physics = ["pybullet==3.2.7"]
+robotics = ["usd-core>=25.05", "pybullet==3.2.7"]
+dev = ["usd-core>=25.05", "pybullet==3.2.7"]
 
 [project.scripts]
 dsiq-native = "dsiq_native.cli:main"

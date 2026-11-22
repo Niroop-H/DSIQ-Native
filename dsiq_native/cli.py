@@ -73,6 +73,16 @@ def build_parser() -> argparse.ArgumentParser:
     drive = sub.add_parser("robot-drive", help="Write six angular drive targets into a USD playground")
     drive.add_argument("scene")
     drive.add_argument("joint_degrees", type=float, nargs=6)
+    bullet = sub.add_parser(
+        "bullet-run",
+        help="Run actual CPU Bullet robotics physics; --gui opens native 3D playground"
+    )
+    bullet.add_argument("--gui", action="store_true")
+    bullet.add_argument("--steps", type=int, default=480)
+    bullet.add_argument("--boxes", type=int, default=4)
+    bullet.add_argument("--gravity", type=float, default=9.81)
+    bullet.add_argument("--joint-degrees", type=float, nargs=6, default=[0.]*6)
+    bullet.add_argument("--json-out", type=str, default=None)
     return p
 
 
@@ -134,6 +144,31 @@ def main(argv: list[str] | None = None) -> int:
                 max_iterations=args.max_iterations,
             ).as_dict()
             code = 0 if result["converged"] else 3
+        elif command == "bullet-run":
+            from pathlib import Path
+            from .bullet_runtime import BulletPlayground, BulletSettings
+            if not 1 <= args.steps <= 50000:
+                raise ValueError("--steps must be between 1 and 50,000")
+            with BulletPlayground(BulletSettings(
+                gui=args.gui, gravity_m_s2=args.gravity, payload_count=args.boxes
+            )) as world:
+                world.command_joints([math.radians(q) for q in args.joint_degrees])
+                if args.gui:
+                    world.run_interactive()
+                    result = {
+                        "engine": "pybullet_cpu",
+                        "gui_closed": True,
+                        "note": "Local native Bullet window closed. No RTX/Kit required.",
+                    }
+                else:
+                    result = world.step(args.steps)
+            if args.json_out:
+                target = Path(args.json_out).resolve()
+                if target.exists():
+                    raise FileExistsError(f"Refusing to overwrite existing report: {target}")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+                result["report_file"] = str(target)
         elif command == "robot-drive":
             stage = _load(_existing_layer(args.scene))
             result = {"target_degrees": set_reference_joint_targets(

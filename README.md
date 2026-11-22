@@ -28,6 +28,27 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 
 **Not yet built/qualified:** standalone RTX rendering integration, measured PhysX articulation/robot simulation acceptance on user hardware, URDF/MJCF import, ROS 2 bridges, validated robot dynamics, RGB/depth/RTX sensor stack, detailed manufacturer-approved CAD models, production Windows packaging. These are explicit milestones, not hidden stubs labeled complete.
 
+## NEW — Local CPU Bullet Robotics Runtime (RTX 3050 fallback)
+
+DSIQ now also has a **real C++ Bullet-backed physics engine** accessible through
+PyBullet. It runs actual rigid-body contacts, gravity, six revolute joints,
+motor control and payload dynamics **without Kit or NVIDIA RTX**. A separate
+native Bullet OpenGL GUI provides interactive joint sliders and scene orbit
+controls; this is a lower-fidelity viewer, not a fake RTX implementation.
+
+```powershell
+python -m pip install -e ".[physics]"
+python -m dsiq_native bullet-run --steps 480 --boxes 5
+python -m dsiq_native bullet-run --gui --boxes 5
+```
+
+The engine reports real joint feedback and compares tool positions to an
+independent analytic kinematic model. It uses simplified and explicitly
+identified reference geometry—not OEM assets or physically calibrated robot
+inertias. Validation runs on CPU in Windows/Linux CI.
+
+See **[CPU Bullet Playground](docs/CPU_PLAYGROUND.md)**.
+
 ## Robotics Playground — development milestone
 
 The robotics module now includes a meaningful, original six-axis reference arm with

@@ -61,3 +61,20 @@ jobs:
       - run: python -m pip install -e ".[physics]"
       - run: python -m unittest discover -s tests -v
       - run: python -m dsiq_native bullet-run --steps 240 --boxes 2
+
+  desktop-linux-xvfb:
+    name: Actual Tk desktop smoke test (virtual display)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install minimal virtual display dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth python3-tk
+      - name: Install Bullet physics and desktop dependencies
+        run: python -m pip install -e ".[physics]"
+      - name: Run real Tk window and Bullet renderer inside Xvfb
+        run: xvfb-run -a python -m unittest discover -s tests -p test_desktop_ui.py -v

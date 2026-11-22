@@ -16,6 +16,23 @@
 | 16GiB RAM / RTX3050 | Selective graceful operation with constrained scene | Advisory GPU budget; standalone CPU software-rendered studio, headless Windows/Linux CI; RTX3050 GUI untested | Actual workstation RAM traces, GUI/fps/accuracy acceptance |
 | Shipping | Signed, supported Windows installer | Not implemented | Clean-room install, license/redistribution review |
 
+## Most recent verified engineering additions
+
+- Quantitative Bullet reference experiments: gravity, resting contacts,
+  torque/inertia and repeatability with machine-readable tolerances.
+- User-authored XYZ gantry project generator: editable dimensions, actual
+  URDF structural assembly, three prismatic motors, bounded source
+  effort/speed, SHA-256 manifest and real Bullet actuation.
+- Named robotics cell, cleanroom and logistics reference architecture,
+  with solid collision classifications, equipment/safety semantics
+  and a bounded CPU software renderer.
+- Native 6DOF free-flight camera with keyboard and mouse controls,
+  integrated into the black/light desktop.
+- OpenUSD facility export with metric transforms, semantic roles,
+  static collision schemas and PBR Preview Surface material inputs.
+- These do NOT constitute manufacturer-exact CAD, RTX visuals, calibrated
+  physics, offline robot path safety or complete Isaac Sim parity.
+
 ## Milestone sequence
 
 M0 — **Now:** establish verifiable OpenUSD stage, robust import/rights gate, hardware budget, Kit diagnostic extension and CI. These have code but execution on target GPU is not yet established.

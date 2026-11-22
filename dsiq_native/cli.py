@@ -144,6 +144,12 @@ def build_parser() -> argparse.ArgumentParser:
     environment.add_argument("preset",choices=["open","robotics_cell","cleanroom_bay","logistics_bay"])
     environment.add_argument("--steps",type=int,default=12)
     environment.add_argument("--png",type=str,default=None)
+    env_usd = sub.add_parser(
+        "environment-usd",
+        help="Export semantic reference facility to real OpenUSD with collision and PBR"
+    )
+    env_usd.add_argument("preset",choices=["open","robotics_cell","cleanroom_bay","logistics_bay"])
+    env_usd.add_argument("scene_file")
     return p
 
 
@@ -205,6 +211,16 @@ def main(argv: list[str] | None = None) -> int:
                 max_iterations=args.max_iterations,
             ).as_dict()
             code = 0 if result["converged"] else 3
+        elif command == "environment-usd":
+            from .bullet_runtime import BulletPlayground, BulletSettings
+            from .environments import ReferenceEnvironment
+            from .environment_usd import export_reference_environment
+            with BulletPlayground(BulletSettings(payload_count=0)) as world:
+                env=ReferenceEnvironment(world)
+                env.build(args.preset)
+                result=export_reference_environment(
+                    env.parts,args.scene_file,args.preset
+                )
         elif command == "environment-render":
             from .bullet_runtime import BulletPlayground, BulletSettings
             from .environments import ReferenceEnvironment

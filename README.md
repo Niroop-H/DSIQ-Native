@@ -28,6 +28,34 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 
 **Not yet built/qualified:** standalone RTX rendering integration, validated PhysX articulation simulation on the RTX 3050, MJCF import, ROS 2 bridges, industry-calibrated robot dynamics, RTX-accurate RGB/depth sensors, realistic sensor noise calibration, detailed approved OEM CAD libraries, and production Windows installers. Actual CPU Bullet RGB-D/LiDAR and verified local URDF inspection/import exist, but they are not RTX or physically calibrated replacements. These are explicit milestones, not hidden stubs labeled complete.
 
+## Physics Assurance + User Machine Lab + Free Camera
+
+New development tools support measurable physical reference experiments,
+actual user-editable XYZ gantry construction, semantically organized facility
+backgrounds and 6DOF camera navigation. All references are labeled honestly.
+
+~~~powershell
+python -m pip install -e ".[robotics]"
+python -m dsiq_native physics-verify
+python -m dsiq_native machine-create user-gantry --name user_xyz_gantry --x-travel 1.2
+python -m dsiq_native bullet-urdf user-gantry/machine.manifest.json --joint actuator_x --target 0.3 --steps 480
+python -m dsiq_native environment-render robotics_cell --png reference.png
+python -m dsiq_native environment-usd cleanroom_bay cleanroom.usda
+python -m dsiq_native studio --theme black
+~~~
+
+The desktop now has free-fly WASD/Q/E navigation, selectable guarded robotics
+cell, cleanroom and warehouse handling environments, a machine designer and
+physics verification. Facility layouts include actual semantic structural
+objects and physical collision where appropriate; they do not impersonate
+licensed industrial machines or photorealistic environments.
+
+USD exports include reference materials and collision schemas. Actual
+RTX/Kit rendering, detailed OEM CAD and production physics qualifications
+still require dedicated development and RTX 3050 hardware acceptance.
+
+See **[Physics, Machine Design and Free Camera](docs/ENGINEERING_SCENES_AND_PHYSICS.md)**.
+
 ## Reference Robot Trajectory Programming
 
 The Reference6R can now generate **joint-limit-aware quintic trajectories**,

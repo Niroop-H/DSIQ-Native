@@ -43,6 +43,7 @@ class OpenUsdTests(unittest.TestCase):
         (self.folder / "RIGHTS.txt").write_text("Test-author fixture", encoding="utf-8")
         manifest = {
             "schema": "dsiq-asset-v1",
+            "asset_class": "test_fixture",
             "asset_id": "fixture_assembly",
             "manufacturer": "Unit Test Author",
             "model": "Test Triangle (not OEM CAD)",

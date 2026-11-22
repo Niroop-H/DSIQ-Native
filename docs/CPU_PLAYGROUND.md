@@ -9,6 +9,16 @@ solver through the Python API and can render via Bullet's own OpenGL GUI.
 robot CAD assembly, an ISO-certified controller, a calibrated digital twin,
 or evidence of industry-ready sensor/contact fidelity.
 
+## Windows and Linux dependency selection
+
+For Windows x86-64, the Python extra uses the separately maintained
+`pybullet-arm64==3.2.8` *drop-in* distribution (its compiled Windows wheel
+imports as `pybullet`). For Linux it uses upstream `pybullet==3.2.7`.
+This decision avoids requiring a full local C++ build of PyBullet on Windows.
+The Windows fork is third-party software and its licensing, provenance and
+security require review before commercial packaging. Platform CI tests
+the actual installed binaries, not just Python syntax.
+
 ## Why an additional backend?
 
 The RTX 3050 + 16 GiB physical RAM target is below current Omniverse Kit and

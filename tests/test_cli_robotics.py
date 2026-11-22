@@ -65,5 +65,27 @@ class RoboticsCliUsdTests(unittest.TestCase):
             self.assertFalse(error["ok"])
 
 
+@unittest.skipUnless(importlib.util.find_spec("pybullet"), "Optional Bullet required")
+class BulletSensorCliTests(unittest.TestCase):
+    def test_sensor_cli_outputs_real_rgb_depth_and_lidar(self):
+        with TemporaryDirectory() as tmp:
+            png = Path(tmp) / "color.png"
+            depth = Path(tmp) / "depth.npz"
+            report_path = Path(tmp) / "report.json"
+            code, data = invoke(
+                "bullet-run", "--steps", "12", "--boxes", "1",
+                "--lidar-rays", "12", "--camera-png", str(png),
+                "--depth-npz", str(depth), "--json-out", str(report_path),
+            )
+            self.assertEqual(code, 0, data)
+            self.assertEqual(data["lidar"]["scan_count"], 12)
+            self.assertEqual(data["camera"]["renderer"], "PYBULLET_TINY_RENDERER_CPU")
+            self.assertTrue(png.is_file())
+            self.assertTrue(depth.is_file())
+            self.assertTrue(report_path.is_file())
+            self.assertFalse(data["physically_qualified"])
+
+
+
 if __name__ == "__main__":
     unittest.main()

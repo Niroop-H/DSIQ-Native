@@ -83,6 +83,12 @@ def build_parser() -> argparse.ArgumentParser:
     bullet.add_argument("--gravity", type=float, default=9.81)
     bullet.add_argument("--joint-degrees", type=float, nargs=6, default=[0.]*6)
     bullet.add_argument("--json-out", type=str, default=None)
+    bullet.add_argument("--lidar-rays", type=int, default=0,
+                        help="Collect ideal geometric Bullet LiDAR rays (4-360)")
+    bullet.add_argument("--camera-png", type=str, default=None,
+                        help="Save actual TinyRenderer CPU RGBA camera PNG")
+    bullet.add_argument("--depth-npz", type=str, default=None,
+                        help="Save metric depth and segmentation arrays")
     return p
 
 
@@ -149,6 +155,8 @@ def main(argv: list[str] | None = None) -> int:
             from .bullet_runtime import BulletPlayground, BulletSettings
             if not 1 <= args.steps <= 50000:
                 raise ValueError("--steps must be between 1 and 50,000")
+            if args.gui and (args.lidar_rays or args.camera_png or args.depth_npz):
+                raise ValueError("Sensor exports require --gui omitted (headless DIRECT mode)")
             with BulletPlayground(BulletSettings(
                 gui=args.gui, gravity_m_s2=args.gravity, payload_count=args.boxes
             )) as world:
@@ -162,6 +170,18 @@ def main(argv: list[str] | None = None) -> int:
                     }
                 else:
                     result = world.step(args.steps)
+                    if args.lidar_rays or args.camera_png or args.depth_npz:
+                        from .sensors import BulletSensors
+                        sensors = BulletSensors(world)
+                        if args.lidar_rays:
+                            result["lidar"] = sensors.lidar_2d(count=args.lidar_rays)
+                        if args.camera_png or args.depth_npz:
+                            frame = sensors.camera_rgbd()
+                            result["camera"] = frame.metadata()
+                            if args.camera_png:
+                                result["camera"]["rgb_png"] = frame.save_png(args.camera_png)
+                            if args.depth_npz:
+                                result["camera"]["depth_npz"] = frame.save_depth_npz(args.depth_npz)
             if args.json_out:
                 target = Path(args.json_out).resolve()
                 if target.exists():

@@ -28,6 +28,23 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 
 **Not yet built/qualified:** standalone RTX rendering integration, measured PhysX articulation/robot simulation acceptance on user hardware, URDF/MJCF import, ROS 2 bridges, validated robot dynamics, RGB/depth/RTX sensor stack, detailed manufacturer-approved CAD models, production Windows packaging. These are explicit milestones, not hidden stubs labeled complete.
 
+## CPU Robotics Sensor Suite
+
+The constrained-memory Bullet backend now also exposes **geometric LiDAR,
+RGB-D camera and joint-link velocity** data from the actual physics world.
+Outputs include real ray hits, measured depth buffers and segmentation IDs;
+color PNG and depth NPZ exports are available without NVIDIA Kit.
+
+```powershell
+python -m dsiq_native bullet-run --steps 240 --lidar-rays 36
+python -m dsiq_native bullet-run --steps 120 --camera-png rgb.png --depth-npz depth.npz
+```
+
+This is low-cost, idealized CPU sensing—not calibrated real-world camera or
+LiDAR response and not NVIDIA RTX sensor rendering.
+
+See **[Bullet CPU Sensors](docs/CPU_SENSORS.md)**.
+
 ## NEW — Local CPU Bullet Robotics Runtime (RTX 3050 fallback)
 
 DSIQ now also has a **real C++ Bullet-backed physics engine** accessible through

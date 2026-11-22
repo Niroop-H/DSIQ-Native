@@ -11,9 +11,9 @@ dependencies = []
 
 [project.optional-dependencies]
 usd = ["usd-core>=25.05"]
-physics = ["pybullet==3.2.7"]
-robotics = ["usd-core>=25.05", "pybullet==3.2.7"]
-dev = ["usd-core>=25.05", "pybullet==3.2.7"]
+physics = ["numpy>=1.26,<2", "pybullet==3.2.7"]
+robotics = ["usd-core>=25.05", "numpy>=1.26,<2", "pybullet==3.2.7"]
+dev = ["usd-core>=25.05", "numpy>=1.26,<2", "pybullet==3.2.7"]
 
 [project.scripts]
 dsiq-native = "dsiq_native.cli:main"

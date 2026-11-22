@@ -137,6 +137,9 @@ class DesktopStudio:
         self._drag = None
         self._last_tick = time.perf_counter()
         self._status_message = "Ready. Physics is genuine Bullet CPU, not calibrated OEM dynamics."
+        self._active_plan = None
+        self._plan_index = 0
+        self._plan_tracking_max = 0.0
         self._mass = tk.StringVar(value="1.0")
         self._side = tk.StringVar(value="0.16")
         self._x = tk.StringVar(value="-0.7")
@@ -324,6 +327,7 @@ class DesktopStudio:
         self._button(row, "Home", self.home).pack(
             side="left", fill="x", expand=True, padx=(4,0)
         )
+        self._button(right, "EXECUTE SMOOTH JOINT PATH", self.plan_motion).pack(fill="x", pady=(0,7))
         self._section(right, "CARTESIAN TARGET / IK")
         for label, value in zip(("X target (m)","Y target (m)","Z target (m)"),
                                 self._target_xyz):
@@ -364,6 +368,7 @@ class DesktopStudio:
         sim_menu.add_command(label="Play", command=lambda: self._safe(self.play))
         sim_menu.add_command(label="Pause", command=lambda: self._safe(self.pause))
         sim_menu.add_command(label="Step", command=lambda: self._safe(self.step_once))
+        sim_menu.add_command(label="Run reference joint program", command=lambda: self._safe(self.plan_motion))
         sim_menu.add_command(label="Reset", command=lambda: self._safe(self.reset))
         menu.add_cascade(label="Simulation", menu=sim_menu)
         self.root.config(menu=menu)
@@ -402,6 +407,8 @@ class DesktopStudio:
 
     def reset(self):
         self.running = False
+        self._active_plan = None
+        self._plan_index = 0
         self.world.close()
         self.world = BulletPlayground(BulletSettings(payload_count=self.config.boxes))
         self.sensors = BulletSensors(self.world)
@@ -421,6 +428,9 @@ class DesktopStudio:
         )
 
     def apply_joints(self):
+        if self._active_plan is not None:
+            self._active_plan = None
+            self._plan_index = 0
         values = tuple(math.radians(x.get()) for x in self._joint_vars)
         self.world.command_joints(values)
         target = forward_kinematics(values).end_effector_m
@@ -452,6 +462,46 @@ class DesktopStudio:
             f"IK CONVERGED. Position residual {result.position_error_m:.5f} m, "
             f"iterations={result.iterations}. Motor commands issued."
         )
+
+    def plan_motion(self):
+        """Execute mathematically bounded joint commands from actual Bullet state."""
+        from .trajectory import plan_joint_trajectory
+        start = self.world.report()["joint_radians"]
+        goal = tuple(math.radians(j.get()) for j in self._joint_vars)
+        self._active_plan = plan_joint_trajectory(start, goal)
+        self._plan_index = 1
+        self._plan_tracking_max = 0.0
+        self.running = True
+        self._status(
+            f"Started quintic reference program: "
+            f"{self._active_plan.duration_s:.3f}s, "
+            f"{len(self._active_plan.steps)-1} physics steps. "
+            "Velocity/acceleration bounded, NOT collision-cleared."
+        )
+
+    def _advance_plan(self, count: int):
+        """Advance the *actual* Bullet motor and read tracking residuals."""
+        if self._active_plan is None:
+            return
+        points = self._active_plan.steps
+        for _ in range(min(12, count)):
+            if self._plan_index >= len(points):
+                self._active_plan = None
+                self.running = False
+                self._status(
+                    f"Motor program finished; measured peak joint tracking "
+                    f"error {self._plan_tracking_max:.5f} rad. "
+                    "Collision avoidance and OEM motor calibration were not proven."
+                )
+                return
+            sample = points[self._plan_index]
+            self.world.command_joints(sample.angles_rad)
+            state = self.world.step(1)
+            error = max(abs(a-b) for a,b in zip(
+                state["joint_radians"], sample.angles_rad
+            ))
+            self._plan_tracking_max = max(self._plan_tracking_max,error)
+            self._plan_index += 1
 
     def lidar_scan(self):
         scan = self.sensors.lidar_2d(
@@ -646,7 +696,10 @@ class DesktopStudio:
                 # software rendering slows. Simulation time is always
                 # (steps / 240), and is not misreported as real wall time.
                 n = min(24, max(1, int(elapsed*240)))
-                self.world.step(n)
+                if self._active_plan is not None:
+                    self._advance_plan(n)
+                else:
+                    self.world.step(n)
             self._render()
         except Exception as exc:
             self.running = False

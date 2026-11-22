@@ -63,6 +63,21 @@ DSIQ Native Tkinter Window
 All visuals in the live camera come from Bullet's current simulated
 bodies, not fabricated screenshots.
 
+## Program smooth robot motion
+
+In the six-joint panel set the requested goal angles and press
+**EXECUTE SMOOTH JOINT PATH** (also available under Simulation).
+DSIQ computes a bounded quintic path starting from *actual measured*
+Bullet joint state and applies every reference motor target at 1/240
+second simulation steps. Playback speed may be slower than wall clock
+on a constrained CPU; measured tracking residuals are reported when
+the programmed trajectory finishes. The Pause control suspends the
+motor program, Play resumes it, and a manual joint command overrides
+the existing program.
+
+This is not obstacle-aware, torque-certified, or safe to run directly
+on physical robots.
+
 ## Important fidelity distinctions
 
 - Reference robot uses simplified collision geometry and estimated

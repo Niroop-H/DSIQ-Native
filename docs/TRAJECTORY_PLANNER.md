@@ -60,3 +60,11 @@ they do not establish an obstacle-free path.
 The planner has unit tests of endpoints, derivatives, speed/acceleration
 bounds, fixed timestep, limit rejection, and actual Bullet replay, and
 identifies paths as **reference-only** rather than certified motion plans.
+
+## Desktop interactive programming
+
+The DSIQ native desktop robot panel also offers **EXECUTE SMOOTH JOINT PATH**,
+which plans from actual measured Bullet angles to its six requested joint
+slider targets and advances real Bullet motor commands at the fixed physics
+timestep. Manual joint override cancels the current program. Reported
+tracking residuals are observations, not OEM control certification.

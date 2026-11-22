@@ -77,6 +77,22 @@ class DesktopStudioUiSmokeTests(unittest.TestCase):
             self.assertTrue(report.is_file())
             self.assertIn("pybullet_cpu", report.read_text())
 
+    def test_smooth_joint_program_executes_actual_bullet_motor_steps(self):
+        app = self.app
+        app.root.update()
+        app._joint_vars[1].set(-10.)
+        app._joint_vars[2].set(14.)
+        app.plan_motion()
+        self.assertIsNotNone(app._active_plan)
+        first = app.world.step_index
+        app._advance_plan(12)
+        self.assertGreater(app.world.step_index, first)
+        self.assertGreater(app._plan_index, 1)
+        self.assertGreaterEqual(app._plan_tracking_max, 0.)
+        app.pause()
+        self.assertFalse(app.running)
+        app.root.update()
+
     def test_reset_scene_retains_valid_ui(self):
         app = self.app
         app.root.update()

@@ -21,6 +21,9 @@ from typing import Literal
 from .robotics import JOINT_LIMITS_DEG, inverse_kinematics, forward_kinematics
 from .bullet_runtime import BulletPlayground, BulletSettings
 from .sensors import BulletSensors, CameraFrame
+from .camera import FreeCamera
+from .environments import ReferenceEnvironment, PRESETS
+from .machine_designer import MachineDesign, load_design, save_project
 
 
 PALETTES = {
@@ -125,6 +128,9 @@ class DesktopStudio:
 
         self.world = BulletPlayground(BulletSettings(payload_count=config.boxes))
         self.sensors = BulletSensors(self.world)
+        self.environment = ReferenceEnvironment(self.world)
+        self._camera_mode = "orbit"
+        self._free_camera = FreeCamera.look_at((2.9,-3.0,1.8),(.1,0.,.55))
         self.running = False
         self._closed = False
         self._tick_id = None
@@ -270,19 +276,25 @@ class DesktopStudio:
             size=10, bold=True
         ).pack(side="left")
         self._button(toolbar, "Frame all", self.frame_all).pack(side="right")
+        self._button(toolbar, "Free camera", lambda: self.set_camera_mode("free")).pack(side="right", padx=(0,6))
+        self._button(toolbar, "Orbit camera", lambda: self.set_camera_mode("orbit")).pack(side="right", padx=(0,6))
         self._viewport = tk.Label(
             middle, background="#101720", foreground=p["text"],
             text="Initializing live Bullet camera...",
             font=("Consolas", 12), compound="center",
         )
         self._viewport.pack(fill="both", expand=True)
+        self._viewport.configure(takefocus=True)
         self._viewport.bind("<ButtonPress-1>", self._mouse_down)
         self._viewport.bind("<B1-Motion>", self._mouse_move)
+        self._viewport.bind("<ButtonPress-3>", self._mouse_down)
+        self._viewport.bind("<B3-Motion>", self._mouse_move)
+        self._viewport.bind("<KeyPress>", self._camera_key)
         self._viewport.bind("<MouseWheel>", self._mouse_scroll)
         self._viewport.bind("<Button-4>", lambda e: self._zoom(0.88))
         self._viewport.bind("<Button-5>", lambda e: self._zoom(1.12))
         self._label(
-            middle, "Drag to orbit  ·  Wheel to zoom  ·  Z-up metric scene",
+            middle, "Orbit: drag/wheel  ·  Free: click viewport then WASD, Q/E, mouse-look  ·  Shift=sprint",
             muted=True, size=9
         ).pack(fill="x", pady=(9,4))
         self._metrics = self._label(
@@ -363,6 +375,11 @@ class DesktopStudio:
         view_menu.add_command(label="Pure black (#000000)", command=lambda: self.set_theme("black"))
         view_menu.add_command(label="Light (#FFFFFF)", command=lambda: self.set_theme("light"))
         view_menu.add_command(label="Frame all", command=lambda: self._safe(self.frame_all))
+        view_menu.add_command(label="Free-fly camera (WASD/QE)", command=lambda: self._safe(lambda: self.set_camera_mode("free")))
+        view_menu.add_command(label="Orbit camera", command=lambda: self._safe(lambda: self.set_camera_mode("orbit")))
+        view_menu.add_command(label="Viewport quality: performance", command=lambda: self._safe(lambda: self.set_viewport_quality("performance")))
+        view_menu.add_command(label="Viewport quality: balanced", command=lambda: self._safe(lambda: self.set_viewport_quality("balanced")))
+        view_menu.add_command(label="Viewport quality: detailed CPU", command=lambda: self._safe(lambda: self.set_viewport_quality("detailed")))
         menu.add_cascade(label="View", menu=view_menu)
         sim_menu = tk.Menu(menu, tearoff=False)
         sim_menu.add_command(label="Play", command=lambda: self._safe(self.play))
@@ -371,6 +388,31 @@ class DesktopStudio:
         sim_menu.add_command(label="Run reference joint program", command=lambda: self._safe(self.plan_motion))
         sim_menu.add_command(label="Reset", command=lambda: self._safe(self.reset))
         menu.add_cascade(label="Simulation", menu=sim_menu)
+        environment_menu = tk.Menu(menu, tearoff=False)
+        for key, title in (
+            ("open", "Open reference stage"),
+            ("robotics_cell", "Guarded robotics test cell"),
+            ("cleanroom_bay", "Cleanroom reference bay"),
+            ("logistics_bay", "Warehouse handling bay"),
+        ):
+            environment_menu.add_command(label=title,
+                command=lambda preset=key: self._safe(lambda: self.set_environment(preset)))
+        menu.add_cascade(label="Environments", menu=environment_menu)
+        machines_menu = tk.Menu(menu, tearoff=False)
+        machines_menu.add_command(label="Design new XYZ inspection gantry...",
+            command=lambda: self._safe(self.design_machine))
+        machines_menu.add_command(label="Build edited machine design JSON...",
+            command=lambda: self._safe(self.build_machine_json))
+        machines_menu.add_separator()
+        machines_menu.add_command(label="Import verified URDF robot...",
+            command=lambda: self._safe(self.import_verified_urdf))
+        machines_menu.add_command(label="Command imported machine joint...",
+            command=lambda: self._safe(self.drive_imported_joint))
+        menu.add_cascade(label="Machine Lab",menu=machines_menu)
+        verify_menu = tk.Menu(menu, tearoff=False)
+        verify_menu.add_command(label="Run quantitative physics verification",
+            command=lambda: self._safe(self.verify_physics))
+        menu.add_cascade(label="Verification",menu=verify_menu)
         self.root.config(menu=menu)
 
     def set_theme(self, theme):
@@ -412,6 +454,7 @@ class DesktopStudio:
         self.world.close()
         self.world = BulletPlayground(BulletSettings(payload_count=self.config.boxes))
         self.sensors = BulletSensors(self.world)
+        self.environment = ReferenceEnvironment(self.world)
         for joint in self._joint_vars:
             joint.set(0.0)
         self._status("New local Bullet scene created; previous sandbox state discarded.")
@@ -636,36 +679,189 @@ class DesktopStudio:
             self._latest.save_png(path)
             self._status("Saved actual CPU Bullet camera frame: " + path)
 
+    def set_camera_mode(self, mode: str):
+        if mode not in ("free","orbit"):
+            raise ValueError("Camera mode must be free or orbit")
+        self._camera_mode = mode
+        if mode == "free":
+            self._free_camera = FreeCamera.look_at(
+                orbit_eye(
+                    self._orbit_yaw,self._orbit_pitch,
+                    self._orbit_distance,self._orbit_center,
+                ),
+                self._orbit_center,
+            )
+            self._viewport.focus_set()
+            self._status(
+                "FREE CAMERA: click viewport to focus; WASD move, Q/E vertical, "
+                "Shift=sprint, drag to look, wheel forward/back. "
+                "The camera is independent of physical simulation."
+            )
+        else:
+            self._status("Orbit camera enabled; drag to rotate and wheel to zoom.")
+
+    def set_viewport_quality(self, quality):
+        from dataclasses import replace
+        choices={
+            "performance":(192,144,16),
+            "balanced":(480,360,12),
+            "detailed":(640,300,8),
+        }
+        if quality not in choices:
+            raise ValueError("Unknown CPU viewport quality")
+        width,height,fps=choices[quality]
+        self.config=replace(
+            self.config,camera_width=width,camera_height=height,fps_limit=fps
+        )
+        self.config.validate()
+        self._status(
+            f"Viewport profile {quality.upper()}: {width}x{height}, "
+            f"refresh limit {fps} FPS, actual software TinyRenderer. "
+            "This does not turn on RTX or improve physical model accuracy."
+        )
+
+    def set_environment(self, preset: str):
+        self.running = False
+        result=self.environment.build(preset)
+        self._status(
+            f"Reference background: {preset}; "
+            f"{result['part_count']} authored meaningful facility parts "
+            f"({result['collision_parts']} with static collision). "
+            "Not real OEM CAD or calibrated facility physics."
+        )
+
+    def verify_physics(self):
+        from .physics_benchmarks import run_physics_suite
+        report=run_physics_suite()
+        lines=[
+            f"{'PASS' if c['passed'] else 'FAIL'} {c['name']}"
+            for c in report["cases"]
+        ]
+        self._status(
+            "PHYSICS REFERENCE VERIFICATION: "
+            + ("PASS" if report["passed"] else "FAIL")
+            + "\n" + "; ".join(lines)
+            + "\nOnly analytic benchmark fixtures are qualified by these tests."
+        )
+        return report
+
+    def _use_machine_project(self, output):
+        report=self.world.import_urdf_robot(
+            output["manifest"],base_position_m=(-.7,-1.6,0.)
+        )
+        self._camera_mode="free"
+        self._free_camera=FreeCamera.look_at((2.2,-4.,2.0),(-.7,-1.3,.9))
+        self._status(
+            f"Engineered XYZ machine project CREATED + ACTUALLY LOADED.\n"
+            f"ID {report['asset_id']}, links/joints {report['joint_count']}, "
+            "3 physical prismatic motors. Use Machine Lab > Command imported "
+            "machine joint to move actuator_x / actuator_y / actuator_z.\n"
+            "This is parametric reference geometry, not OEM CAD."
+        )
+
+    def design_machine(self):
+        from tkinter import simpledialog
+        name=simpledialog.askstring(
+            "Machine design", "Unique machine identifier (lowercase snake_case):",
+            initialvalue="user_xyz_inspection_gantry",parent=self.root,
+        )
+        if name is None:
+            return
+        spec=MachineDesign(asset_id=name)
+        values={}
+        for prompt,key in (
+            ("X-axis travel (m)","x_travel_m"),
+            ("Y-axis travel (m)","y_travel_m"),
+            ("Z-axis travel (m)","z_travel_m"),
+            ("Frame clearance height (m)","clearance_height_m"),
+        ):
+            v=simpledialog.askfloat(
+                "Machine design",prompt,initialvalue=getattr(spec,key),
+                parent=self.root,
+            )
+            if v is None:
+                return
+            values[key]=v
+        from dataclasses import replace
+        spec=replace(spec,**values)
+        spec.validate()
+        directory=self.filedialog.askdirectory(
+            title="Choose an EMPTY output directory for your editable design"
+        )
+        if not directory:
+            return
+        self._use_machine_project(save_project(spec,directory))
+
+    def build_machine_json(self):
+        source=self.filedialog.askopenfilename(
+            filetypes=[("DSIQ machine JSON","*.json")],
+            title="Open edited user-owned DSIQ machine design JSON",
+        )
+        if not source:
+            return
+        spec=load_design(source)
+        directory=self.filedialog.askdirectory(
+            title="Select new EMPTY output directory (existing projects not overwritten)"
+        )
+        if not directory:
+            return
+        self._use_machine_project(save_project(spec,directory))
+
     def frame_all(self):
-        self._orbit_center = (0.,0.,.55)
-        self._orbit_yaw = -.8
-        self._orbit_pitch = .35
-        self._orbit_distance = 3.0
+        self._orbit_center=(0.,0.,.55)
+        self._orbit_yaw=-.8
+        self._orbit_pitch=.35
+        self._orbit_distance=3.0
+        if self._camera_mode=="free":
+            self._free_camera=FreeCamera.look_at(
+                (2.2,-3.0,1.8),self._orbit_center,
+            )
 
-    def _mouse_down(self, event):
-        self._drag = (event.x, event.y)
+    def _mouse_down(self,event):
+        self._viewport.focus_set()
+        self._drag=(event.x,event.y)
 
-    def _mouse_move(self, event):
+    def _mouse_move(self,event):
         if self._drag is None:
             return
-        dx, dy = event.x-self._drag[0], event.y-self._drag[1]
-        self._drag = (event.x,event.y)
-        self._orbit_yaw -= .009*dx
-        self._orbit_pitch = max(-1.35,min(1.35,self._orbit_pitch+.009*dy))
+        dx,dy=event.x-self._drag[0],event.y-self._drag[1]
+        self._drag=(event.x,event.y)
+        if self._camera_mode=="free":
+            self._free_camera.mouse_look(-dx,dy)
+        else:
+            self._orbit_yaw-=.009*dx
+            self._orbit_pitch=max(-1.35,min(1.35,self._orbit_pitch+.009*dy))
 
-    def _zoom(self, factor):
-        self._orbit_distance = max(1.2,min(12.,self._orbit_distance*factor))
+    def _camera_key(self,event):
+        if self._camera_mode!="free":
+            return
+        key=event.keysym.lower()
+        if key in ("w","a","s","d","q","e"):
+            self._free_camera.move(
+                key,seconds=.10,sprint=bool(event.state & 0x0001)
+            )
+            return "break"
 
-    def _mouse_scroll(self, event):
+    def _zoom(self,factor):
+        if self._camera_mode=="free":
+            self._free_camera.move("w" if factor<1 else "s",seconds=.10)
+        else:
+            self._orbit_distance=max(1.2,min(12.,self._orbit_distance*factor))
+
+    def _mouse_scroll(self,event):
         self._zoom(.88 if event.delta>0 else 1.12)
 
     def _render(self):
-        eye = orbit_eye(
-            self._orbit_yaw, self._orbit_pitch,
-            self._orbit_distance, self._orbit_center,
-        )
+        if self._camera_mode == "free":
+            eye,look_at=self._free_camera.eye_target(sight_distance_m=3.0)
+        else:
+            eye=orbit_eye(
+                self._orbit_yaw,self._orbit_pitch,
+                self._orbit_distance,self._orbit_center,
+            )
+            look_at=self._orbit_center
         self._latest = self.sensors.camera_rgbd(
-            eye_m=eye, look_at_m=self._orbit_center,
+            eye_m=eye, look_at_m=look_at,
             width=self.config.camera_width, height=self.config.camera_height,
         )
         data = base64.b64encode(self._latest.to_png_bytes()).decode("ascii")

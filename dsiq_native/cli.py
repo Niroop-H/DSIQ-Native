@@ -137,6 +137,13 @@ def build_parser() -> argparse.ArgumentParser:
     build = sub.add_parser("machine-build",help="Rebuild URDF from an edited machine design JSON")
     build.add_argument("design_json")
     build.add_argument("output_directory")
+    environment = sub.add_parser(
+        "environment-render",
+        help="Render real Bullet semantic facility reference background into PNG"
+    )
+    environment.add_argument("preset",choices=["open","robotics_cell","cleanroom_bay","logistics_bay"])
+    environment.add_argument("--steps",type=int,default=12)
+    environment.add_argument("--png",type=str,default=None)
     return p
 
 
@@ -198,6 +205,26 @@ def main(argv: list[str] | None = None) -> int:
                 max_iterations=args.max_iterations,
             ).as_dict()
             code = 0 if result["converged"] else 3
+        elif command == "environment-render":
+            from .bullet_runtime import BulletPlayground, BulletSettings
+            from .environments import ReferenceEnvironment
+            if not 1 <= args.steps <= 10000:
+                raise ValueError("--steps must be in [1,10000]")
+            with BulletPlayground(BulletSettings(payload_count=0)) as world:
+                env=ReferenceEnvironment(world)
+                result={
+                    "environment":env.build(args.preset),
+                    "physics":world.step(args.steps),
+                }
+                if args.png:
+                    from .sensors import BulletSensors
+                    frame=BulletSensors(world).camera_rgbd(
+                        eye_m=(3.5,-4.,2.6),look_at_m=(0.,0.,1.15),
+                        width=480,height=360,
+                    )
+                    result["image"]={
+                        **frame.metadata(),"file":frame.save_png(args.png)
+                    }
         elif command == "physics-verify":
             from .physics_benchmarks import run_physics_suite
             result = run_physics_suite()

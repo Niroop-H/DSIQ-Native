@@ -28,6 +28,29 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 
 **Not yet built/qualified:** standalone RTX rendering integration, measured PhysX articulation/robot simulation acceptance on user hardware, URDF/MJCF import, ROS 2 bridges, validated robot dynamics, RGB/depth/RTX sensor stack, detailed manufacturer-approved CAD models, production Windows packaging. These are explicit milestones, not hidden stubs labeled complete.
 
+## NEW — Standalone DSIQ Native Desktop Robotics Studio
+
+The project now also contains a self-contained, DSIQ-branded native desktop
+control interface with **PURE BLACK (#000000)** and **LIGHT (#FFFFFF)** themes.
+Unlike the experimental Omniverse Kit interface, it uses local C++ Bullet
+physics and a software-rendered 3D camera, making it a credible lower-RAM
+development path on the RTX 3050 system.
+
+The GUI has actual orbit/zoom viewport navigation, Play/Pause/Step, dynamic
+payload creation, a six-joint robot control panel, position-only Cartesian IK,
+LiDAR scanning, PNG screenshots, reference OpenUSD scene export and real
+physics-state JSON reporting. This is **not RTX visualization or calibrated
+OEM dynamics**, and the GUI requires on-device validation beyond headless CI.
+
+~~~powershell
+python -m pip install -e ".[physics]"
+python -m dsiq_native studio --theme black --boxes 4
+# Or:
+python -m dsiq_native studio --theme light --boxes 4
+~~~
+
+See **[Standalone Desktop Studio](docs/DESKTOP_STUDIO.md)**.
+
 ## CPU Robotics Sensor Suite
 
 The constrained-memory Bullet backend now also exposes **geometric LiDAR,

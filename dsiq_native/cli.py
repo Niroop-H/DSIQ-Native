@@ -89,6 +89,14 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Save actual TinyRenderer CPU RGBA camera PNG")
     bullet.add_argument("--depth-npz", type=str, default=None,
                         help="Save metric depth and segmentation arrays")
+    studio = sub.add_parser(
+        "studio", help="Launch DSIQ-branded native CPU robotics GUI; no NVIDIA Kit needed"
+    )
+    studio.add_argument("--theme", choices=("black", "light"), default="black")
+    studio.add_argument("--boxes", type=int, default=4)
+    studio.add_argument("--width", type=int, default=480)
+    studio.add_argument("--height", type=int, default=360)
+    studio.add_argument("--fps", type=int, default=12)
     return p
 
 
@@ -150,6 +158,13 @@ def main(argv: list[str] | None = None) -> int:
                 max_iterations=args.max_iterations,
             ).as_dict()
             code = 0 if result["converged"] else 3
+        elif command == "studio":
+            from .desktop_studio import launch_studio
+            result = launch_studio(
+                theme=args.theme, boxes=args.boxes,
+                camera_width=args.width, camera_height=args.height,
+                fps_limit=args.fps,
+            )
         elif command == "bullet-run":
             from pathlib import Path
             from .bullet_runtime import BulletPlayground, BulletSettings

@@ -52,12 +52,8 @@ class CameraFrame:
             "contains_segmentation": True,
         }
 
-    def save_png(self, file: str | Path) -> str:
-        """Save actual 8-bit RGBA pixels to a standards-compliant PNG, no Pillow."""
-        path = Path(file).resolve()
-        if path.exists():
-            raise FileExistsError(f"Refusing to overwrite image: {path}")
-        path.parent.mkdir(parents=True, exist_ok=True)
+    def to_png_bytes(self) -> bytes:
+        """Return actual RGBA camera pixels encoded as a portable PNG image."""
         def chunk(tag: bytes, payload: bytes) -> bytes:
             return (struct.pack("!I", len(payload)) + tag + payload +
                     struct.pack("!I", binascii.crc32(tag + payload) & 0xffffffff))
@@ -72,7 +68,15 @@ class CameraFrame:
             chunk(b"IDAT", zlib.compress(bytes(rows), 6)) +
             chunk(b"IEND", b"")
         )
-        path.write_bytes(png)
+        return png
+
+    def save_png(self, file: str | Path) -> str:
+        """Save actual camera image without silently overwriting a file."""
+        path = Path(file).resolve()
+        if path.exists():
+            raise FileExistsError(f"Refusing to overwrite image: {path}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(self.to_png_bytes())
         return str(path)
 
     def save_depth_npz(self, file: str | Path) -> str:

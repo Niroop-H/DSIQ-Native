@@ -140,6 +140,38 @@ def validate_asset(path: str | Path) -> Validation:
                 errors.append(f"Duplicate subassembly prim_path: {part['prim_path']}")
             unique_paths.add(part["prim_path"])
 
+    asset_class = m.get("asset_class")
+    if asset_class not in ("test_fixture", "engineering_reference", "oem_verified"):
+        errors.append(
+            "asset_class must be test_fixture, engineering_reference, or oem_verified"
+        )
+    if asset_class == "test_fixture":
+        warnings.append(
+            "TEST FIXTURE ONLY: never display as manufacturer-grade, "
+            "physically validated, or production industrial equipment."
+        )
+    if asset_class in ("engineering_reference", "oem_verified"):
+        review = m.get("visual_review")
+        if not isinstance(review, dict):
+            errors.append("Industrial visual assets require visual_review evidence")
+            review = {}
+        if review.get("approved") is not True:
+            errors.append("visual_review.approved must be true for display as detailed equipment")
+        if not isinstance(review.get("reviewed_against"), str) or not review["reviewed_against"].strip():
+            errors.append("visual_review.reviewed_against must identify source reference evidence")
+        if not isinstance(review.get("reviewer"), str) or not review["reviewer"].strip():
+            errors.append("visual_review.reviewer must identify the accountable reviewer")
+        try:
+            evidence = _within_manifest_dir(manifest, review.get("evidence_file", ""))
+            if not evidence.is_file() or not evidence.stat().st_size:
+                errors.append("Industrial visual assets require a nonempty visual_review.evidence_file")
+        except ValueError as exc:
+            errors.append(f"visual_review.evidence_file: {exc}")
+        warnings.append(
+            "Visual review evidence is a provenance record, not independent proof "
+            "that actual CAD geometry is dimensionally or physically accurate."
+        )
+
     physics = m.get("physics", {})
     if not isinstance(physics, dict):
         physics = {}

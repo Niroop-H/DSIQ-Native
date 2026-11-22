@@ -1,0 +1,41 @@
+name: DSIQ Native - headless quality gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  contracts-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e .
+      - run: python -m compileall -q dsiq_native source/extensions/dsiq.studio/dsiq tests
+      - run: python -m unittest discover -s tests -v
+
+  contracts-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e .
+      - run: python -m compileall -q dsiq_native source/extensions/dsiq.studio/dsiq tests
+      - run: python -m unittest discover -s tests -v
+
+  openusd-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e ".[usd]"
+      - run: python -c "from pxr import Usd, UsdGeom, UsdPhysics; print('Pixar USD Python available')"
+      - run: python -m unittest discover -s tests -v

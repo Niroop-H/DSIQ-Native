@@ -63,7 +63,7 @@ class RealEnvironmentCliTests(unittest.TestCase):
         code,result=call("physics-verify")
         self.assertEqual(code,0,result)
         self.assertTrue(result["passed"])
-        self.assertEqual(result["case_count"],4)
+        self.assertEqual(result["case_count"],5)
 
 if __name__=="__main__":
     unittest.main()

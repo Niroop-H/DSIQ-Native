@@ -145,7 +145,7 @@ class DesktopStudioUiSmokeTests(unittest.TestCase):
         app=self.app
         app.root.update()
         report=app.verify_physics()
-        self.assertEqual(report["case_count"],4)
+        self.assertEqual(report["case_count"],5)
         self.assertTrue(report["passed"],report)
         self.assertIn("VERIFICATION",app._status_message)
 

@@ -64,6 +64,19 @@ See [OpenUSD Assembly and Representation Layers](docs/USD_COMPOSITION.md).
 These commands do not constitute a full Omniverse Composer UI or
 multiplayer real-time collaboration.
 
+## Physics Solver Convergence Tests
+
+The physics verification suite now compares falling-body solutions at
+**120, 240 and 480 Hz** against an independent analytical reference,
+requiring measured error to decrease as the timestep is refined.
+The result reports error magnitudes and ratios instead of treating
+one successful gravity test as proof of universal precision.
+This is **not** a contact, deformable-body or industrial dynamics certification.
+
+~~~powershell
+python -m dsiq_native physics-verify
+~~~
+
 ## Inertia and Actuator Import Safety
 
 Imported URDF links now require a physically feasible positive-definite

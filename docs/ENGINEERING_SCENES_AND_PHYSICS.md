@@ -19,6 +19,13 @@ The suite executes real Bullet numerical experiments:
 - Constant torque on a rigid body, compared with torque/inertia dynamics.
 - Independent-client repeatability with a fixed simulation timestep.
 
+The fifth fixture independently measures timestep convergence using
+120, 240 and 480 Hz integration of an unconstrained free-falling
+body. It checks monotonically decreasing position error against the
+analytic constant-acceleration solution and records the error ratios.
+This does not establish convergence under collision, articulation,
+friction, deformable contact or industrial machine loading.
+
 Each result contains observed values, analytic references, explicit
 tolerances and pass/fail data. Passing these individual checks does NOT
 prove physically perfect simulation, real equipment safety, deformable

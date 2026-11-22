@@ -3,7 +3,7 @@ import importlib.util
 import unittest
 
 from dsiq_native.physics_benchmarks import (
-    free_fall, ground_contact, torque_and_inertia, repeatability, run_physics_suite,
+    free_fall, ground_contact, torque_and_inertia, repeatability, timestep_convergence, run_physics_suite,
 )
 
 @unittest.skipUnless(importlib.util.find_spec("pybullet"),"PyBullet optional dependency required")
@@ -26,9 +26,19 @@ class MeasuredPhysicsTests(unittest.TestCase):
         result=repeatability()
         self.assertTrue(result.passed, result)
 
+    def test_gravity_error_decreases_with_fixed_step_refinement(self):
+        result=timestep_convergence()
+        self.assertTrue(result.passed,result)
+        rates=result.observed["observations"]
+        self.assertEqual([x["hz"] for x in rates],[120,240,480])
+        self.assertGreater(rates[0]["absolute_error_m"],
+                           rates[1]["absolute_error_m"])
+        self.assertGreater(rates[1]["absolute_error_m"],
+                           rates[2]["absolute_error_m"])
+
     def test_suite_reports_actual_measured_failures_not_certification(self):
         data=run_physics_suite()
-        self.assertEqual(data["case_count"],4)
+        self.assertEqual(data["case_count"],5)
         self.assertTrue(data["passed"],data)
         self.assertTrue(all("observed" in item for item in data["cases"]))
         self.assertIn("no OEM",data["claims"])

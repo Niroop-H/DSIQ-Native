@@ -24,14 +24,14 @@ class PhysicsCase:
         return asdict(self)
 
 
-def _client(gravity: float):
+def _client(gravity: float, *, timestep_s: float = PHYSICS_DT):
     p = _bullet()
     cid = p.connect(p.DIRECT)
     if cid < 0:
         raise RuntimeError("Bullet physics client did not initialize")
     try:
         p.setGravity(0, 0, -gravity, physicsClientId=cid)
-        p.setTimeStep(PHYSICS_DT, physicsClientId=cid)
+        p.setTimeStep(timestep_s, physicsClientId=cid)
         p.setRealTimeSimulation(0, physicsClientId=cid)
         p.setPhysicsEngineParameter(
             numSolverIterations=120, deterministicOverlappingPairs=1,
@@ -193,8 +193,68 @@ def repeatability() -> PhysicsCase:
     )
 
 
+
+def timestep_convergence() -> PhysicsCase:
+    """Independent dt refinement against a constant-acceleration solution.
+
+    Compare the same 0.5 s free-fall trajectory with 120/240/480 Hz steps.
+    This must not silently turn an inaccurate time integrator into a
+    production physics claim: only this simple unconstrained case is tested.
+    """
+    gravity = 9.81
+    total_seconds = .5
+    height = 3.0
+    analytic_height = height - gravity * total_seconds**2 / 2.
+    observations = []
+    for hz in (120, 240, 480):
+        dt = 1. / hz
+        p, cid = _client(gravity, timestep_s=dt)
+        try:
+            body = _box(
+                p, cid, mass=1.4, side=.12, position=(0., 0., height)
+            )
+            for _ in range(int(total_seconds * hz)):
+                p.stepSimulation(physicsClientId=cid)
+            observed_height = p.getBasePositionAndOrientation(
+                body, physicsClientId=cid
+            )[0][2]
+            observations.append({
+                "hz":hz, "dt_s":dt,
+                "height_m":float(observed_height),
+                "analytic_height_m":analytic_height,
+                "absolute_error_m":abs(observed_height-analytic_height),
+            })
+        finally:
+            p.disconnect(physicsClientId=cid)
+    coarse, default, fine = [o["absolute_error_m"] for o in observations]
+    correct_order = (coarse > default and default > fine)
+    # Refined midpoint error must be small for this isolated reference,
+    # while all three approximations monotonically improve.
+    success = correct_order and fine < .015 and all(
+        math.isfinite(o["height_m"]) for o in observations
+    )
+    return PhysicsCase(
+        "free_fall_timestep_convergence",
+        {
+            "observations":observations,
+            "error_ratio_120_to_240":coarse/default if default else None,
+            "error_ratio_240_to_480":default/fine if fine else None,
+            "monotonically_refines":correct_order,
+            "finest_absolute_error_m":fine,
+        },
+        {"total_time_s":total_seconds,
+         "analytic_height_m":analytic_height,
+         "reference_order":"error_120Hz > error_240Hz > error_480Hz"},
+        {"finest_absolute_error_m":.015,
+         "monotone_error_reduction":True},
+        success,
+        "Short, isolated falling-cube timestep refinement only. "
+        "Does not establish contact convergence, collision tunneling "
+        "resistance, FEM accuracy, or solver equivalence to PhysX.",
+    )
+
 def run_physics_suite() -> dict:
-    cases = [free_fall(), ground_contact(), torque_and_inertia(), repeatability()]
+    cases = [free_fall(), ground_contact(), torque_and_inertia(), repeatability(), timestep_convergence()]
     return {
         "solver":"bullet_cpu",
         "fixed_timestep_s":PHYSICS_DT,

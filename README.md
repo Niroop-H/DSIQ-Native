@@ -17,16 +17,40 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 5. **16 GiB RAM, RTX 3050 is the design target, not a guarantee**: select capability tiers from *measured free* GPU memory and RAM; refuse oversize scenes before exhausting memory; record observed peak memory, p95 step time, asset provenance, and rendering metrics. GPU driver/Kit allocations remain outside DSIQ's full control.
 6. **Native differentiation**: actionable equipment metadata, engineering evidence, asset validation, digital twin integrations and useful operator workflows—not simply copying NVIDIA's interface.
 
-## What this initial commit implements
+## Foundation and current implementation
 
 - Standard-library, platform-aware NVIDIA GPU and RAM inspection with conservative, *estimated* application-asset budgets and clear warnings.
 - An OEM/asset manifest validation gate: SHA-256 checks, source provenance, licensing evidence, exact CAD files and physics-evidence classification; missing files fail closed.
 - Headless OpenUSD scene creation, inspection, and reference attachment via Pixar's `pxr` Python bindings (requires `usd-core` or a compatible Kit Python environment).
-- An optional **Kit SDK Python extension** displaying real properties of the active USD stage. It runs *inside a separately installed NVIDIA Kit Base Editor*; it does **not** ship NVIDIA's proprietary SDK binaries.
+- An optional **Kit SDK Python extension** with active stage diagnostics, robotics playground controls, gravity, motor drive targets and theme switching, It runs *inside a separately installed NVIDIA Kit Base Editor*; it does **not** ship NVIDIA's proprietary SDK binaries.
 - Python unit/integration tests and GitHub CI scaffolding.
 - Competitive-feature, hardware and engineering-acceptance specifications.
 
-**Not yet built:** proprietary/native RTX renderer integration, PhysX simulation graphs, URDF/MJCF import, ROS 2 bridges, validated robot dynamics, RGB/depth/RTX sensor stack, detailed manufacturer-approved CAD models, production Windows packaging. These are explicit milestones, not hidden stubs labeled complete.
+**Not yet built/qualified:** standalone RTX rendering integration, measured PhysX articulation/robot simulation acceptance on user hardware, URDF/MJCF import, ROS 2 bridges, validated robot dynamics, RGB/depth/RTX sensor stack, detailed manufacturer-approved CAD models, production Windows packaging. These are explicit milestones, not hidden stubs labeled complete.
+
+## Robotics Playground — development milestone
+
+The robotics module now includes a meaningful, original six-axis reference arm with
+analytic FK/Jacobian and position-only IK, real USD revolute joints and angular
+motor-drive schemas, test payloads and a configurable physics scene. The Kit
+extension has user controls for creating/resetting the playground, adding physical
+sandbox objects, editing robot joint targets, Cartesian IK, gravity, play/pause/stop,
+saving USD, and **pure-black (#000000) / light (#FFFFFF) themes**.
+
+These are verified through source and headless unit/integration tests, not a claim
+that PhysX, OEM dynamics or RTX rendering has passed tests on an RTX 3050.
+The model uses transparent simplified reference collision geometry, **not** a
+misleading imitation of manufacturer CAD.
+
+See **[Robotics Playground — Controls and validation](docs/ROBOTICS_PLAYGROUND.md)**.
+
+```powershell
+python -m dsiq_native playground examples/robotics.usda --boxes 5
+python -m dsiq_native playground-report examples/robotics.usda
+python -m dsiq_native robot-fk 0 -20 40 0 0 0
+python -m dsiq_native robot-ik 0.7 0.2 0.7
+python -m dsiq_native robot-drive examples/robotics.usda 0 -20 40 0 0 0
+```
 
 ## Use the functional headless tools
 

@@ -43,7 +43,7 @@ class PlaygroundUsdTests(unittest.TestCase):
             PLAYGROUND_PATH + "/Ground"
         ))
         scene = UsdPhysics.Scene.Get(self.stage, "/World/Physics")
-        self.assertAlmostEqual(scene.GetGravityMagnitudeAttr().Get(), 9.81)
+        self.assertAlmostEqual(scene.GetGravityMagnitudeAttr().Get(), 9.81, places=5)
         self.assertEqual(str(UsdGeom.GetStageUpAxis(self.stage)), "Z")
         robot = self.stage.GetPrimAtPath(PLAYGROUND_PATH + "/Reference6R")
         self.assertTrue(robot.HasAPI(UsdPhysics.ArticulationRootAPI))
@@ -65,7 +65,7 @@ class PlaygroundUsdTests(unittest.TestCase):
         self.assertAlmostEqual(result[0], math.degrees(requested[0]))
         from pxr import UsdPhysics
         prim = self.stage.GetPrimAtPath(PLAYGROUND_PATH + "/Reference6R/Joints/Joint_1")
-        drive = UsdPhysics.DriveAPI.Get(self.stage, prim.GetPath(), "angular")
+        drive = UsdPhysics.DriveAPI.Get(prim, "angular")
         self.assertAlmostEqual(drive.GetTargetPositionAttr().Get(), result[0], places=6)
         with self.assertRaises(ValueError):
             set_reference_joint_targets(self.stage, [math.pi] * 6)

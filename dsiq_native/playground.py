@@ -303,7 +303,7 @@ def set_reference_joint_targets(stage, angles_rad: Sequence[float]) -> list[floa
         raise ValueError("Reference6R joints missing; create a playground with robot enabled")
     targets = [math.degrees(q) for q in values]
     for prim, angle in zip(joints, targets):
-        drive = UsdPhysics.DriveAPI.Get(prim.GetStage(), prim.GetPath(), "angular")
+        drive = UsdPhysics.DriveAPI.Get(prim, "angular")
         if not drive:
             raise RuntimeError(f"USD angular drive missing on {prim.GetPath()}")
         drive.GetTargetPositionAttr().Set(float(angle))

@@ -1,22 +1,24 @@
-# Experimental native application specification, to run via a compatible NVIDIA Kit SDK.
-# Do not bundle SDK/RTX binaries without checking NVIDIA's redistribution terms.
+# Experimental Kit-based DSIQ Native application; requires an installed licensed Kit SDK.
+# The RTX 3050 is below NVIDIA's supported Kit GPU baseline. GPU launch unverified.
 [package]
-version = "0.1.0"
-title = "DSIQ Native Studio"
-description = "OpenUSD industrial digital twin foundation: experimental Kit host."
+version = "0.2.0"
+title = "DSIQ Native | Robotics & Engineering Studio"
+description = "OpenUSD engineering scene authoring, reference robotics and physics lab"
 category = "Simulation"
 
 [dependencies]
 "omni.kit.uiapp" = {}
 "omni.usd" = {}
+"omni.timeline" = {}
 "omni.kit.window.stage" = {}
 "omni.kit.viewport.window" = {}
+"omni.physx" = {}
 "dsiq.studio" = {}
 
 [settings.app]
-name = "DSIQ Native Studio"
+name = "DSIQ Native"
 
 [settings.app.window]
 title = "DSIQ Native | Engineering Studio"
-width = 1280
-height = 800
+width = 1440
+height = 900

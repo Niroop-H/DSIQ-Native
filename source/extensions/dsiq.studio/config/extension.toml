@@ -1,13 +1,14 @@
 [package]
-version = "0.1.0"
-title = "DSIQ Native - OpenUSD Scene Diagnostics"
-description = "Native USD inspection and simulation evidence gates for DSIQ engineering."
+version = "0.2.0"
+title = "DSIQ Native - Robotics Playground & Scene Diagnostics"
+description = "Engineering-grade USD controls, 6R reference robotics, and scene assurance. Development preview; not OEM qualified."
 category = "Simulation"
-keywords = ["dsiq", "openusd", "industrial", "engineering", "diagnostics"]
+keywords = ["dsiq", "openusd", "robotics", "playground", "physics"]
 
 [dependencies]
 "omni.kit.uiapp" = {}
 "omni.usd" = {}
+"omni.timeline" = {}
 
 [[python.module]]
 name = "dsiq.studio"

@@ -194,7 +194,7 @@ class DesktopStudio:
         for child in self.root.winfo_children():
             child.destroy()
         self.root.configure(background=p["background"])
-        self.root.option_add("*Font", "Segoe UI 10")
+        # Set each widget font explicitly; Tcl misparses unbraced families with spaces.
         self._menu()
         header = tk.Frame(self.root, background=p["background"], height=63)
         header.pack(fill="x", padx=22, pady=(12, 0))

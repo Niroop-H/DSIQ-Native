@@ -26,7 +26,35 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 - Python unit/integration tests and GitHub CI scaffolding.
 - Competitive-feature, hardware and engineering-acceptance specifications.
 
-**Not yet built/qualified:** standalone RTX rendering integration, validated PhysX articulation simulation on the RTX 3050, MJCF import, ROS 2 bridges, industry-calibrated robot dynamics, RTX-accurate RGB/depth sensors, realistic sensor noise calibration, detailed approved OEM CAD libraries, and production Windows installers. Actual CPU Bullet RGB-D/LiDAR and verified local URDF inspection/import exist, but they are not RTX or physically calibrated replacements. These are explicit milestones, not hidden stubs labeled complete.
+**Not yet built/qualified:** standalone RTX rendering integration, validated PhysX articulation simulation on the RTX 3050, MJCF import, production-qualified ROS 2 bridges, industry-calibrated robot dynamics, RTX-accurate RGB/depth sensors, realistic sensor noise calibration, detailed approved OEM CAD libraries, and production Windows installers. Actual CPU Bullet RGB-D/LiDAR and verified local URDF inspection/import exist, but they are not RTX or physically calibrated replacements. These are explicit milestones, not hidden stubs labeled complete.
+
+## Extended contact physics and read-only ROS 2 integration
+
+DSIQ now has additional numeric acceptance experiments for
+**resting contact at 120/240/480 Hz**, friction-sensitive real Bullet
+sliding dynamics, and URDF prismatic-joint velocity/effort limits.
+Measurements include observed errors and thresholds rather than claiming
+perfect physics.
+
+A new ROS 2 preview builds actual `JointState`, `LaserScan` and
+simulation-clock message fields from Bullet's measured joint states and
+raycast sensor results. An **optional ROS 2 rclpy publisher** can send
+the measurements on isolated `/dsiq/` topics when an independently
+installed ROS 2 environment is available. It is strictly read-only and
+has no physical actuator-command channel.
+
+~~~powershell
+python -m pip install -e ".[physics]"
+python -m dsiq_native physics-extended
+python -m dsiq_native ros2-preview --steps-per-frame 12 --lidar-rays 36
+# Requires a separate, functioning ROS 2 Python runtime:
+python -m dsiq_native ros2-stream --frames 100
+~~~
+
+See [Extended Physics Evidence](docs/EXTENDED_PHYSICS.md) and
+[ROS 2 Read-Only Bridge](docs/ROS2_BRIDGE.md). CI tests actual Bullet
+measurements and offline ROS field contracts; live ROS 2 DDS middleware
+is **not** exercised or claimed validated by ordinary CI.
 
 ## Isaac Sim gap: physics-backed synthetic datasets
 

@@ -192,6 +192,23 @@ def build_parser() -> argparse.ArgumentParser:
     wl=sub.add_parser("usd-workspace-inspect",
                       help="Inspect composed USD layers, actual mesh references and assets")
     wl.add_argument("project_directory")
+    sub.add_parser(
+        "physics-extended",
+        help="Measure contact step stability, friction and actual URDF motor limits"
+    )
+    rp=sub.add_parser(
+        "ros2-preview",help="Capture actual Bullet JointState/LaserScan/Clock fields without ROS 2"
+    )
+    rp.add_argument("--steps-per-frame",type=int,default=12)
+    rp.add_argument("--lidar-rays",type=int,default=36)
+    rp.add_argument("--range-m",type=float,default=5.)
+    rs=sub.add_parser(
+        "ros2-stream",help="Read-only live ROS 2 publishers (requires external rclpy)"
+    )
+    rs.add_argument("--frames",type=int,default=50)
+    rs.add_argument("--steps-per-frame",type=int,default=12)
+    rs.add_argument("--lidar-rays",type=int,default=36)
+    rs.add_argument("--range-m",type=float,default=5.)
     return p
 
 
@@ -200,7 +217,23 @@ def main(argv: list[str] | None = None) -> int:
     try:
         command = args.command
         code = 0
-        if command == "usd-workspace-new":
+        if command == "physics-extended":
+            from .physics_fidelity import run_extended_physics_suite
+            result=run_extended_physics_suite()
+            code=0 if result["passed"] else 3
+        elif command == "ros2-preview":
+            from .ros2_bridge import RosBridgeSettings,preview_ros_contract
+            result=preview_ros_contract(RosBridgeSettings(
+                frames=1,steps_per_frame=args.steps_per_frame,
+                lidar_rays=args.lidar_rays,scan_range_m=args.range_m,
+            ))
+        elif command == "ros2-stream":
+            from .ros2_bridge import RosBridgeSettings,publish_ros2
+            result=publish_ros2(RosBridgeSettings(
+                frames=args.frames,steps_per_frame=args.steps_per_frame,
+                lidar_rays=args.lidar_rays,scan_range_m=args.range_m,
+            ))
+        elif command == "usd-workspace-new":
             from .usd_composition import new_workspace
             result=new_workspace(args.project_directory)
         elif command == "usd-workspace-import":

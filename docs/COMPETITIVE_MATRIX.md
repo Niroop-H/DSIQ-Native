@@ -9,12 +9,26 @@
 | RTX renderer | Physically based lighting, path tracing, denoising | Not implemented independently; Kit host may supply renderer | RTX 3050 real-device frame and VRAM evidence |
 | Materials/CAD | Real assemblies, calibrated PBR, CAD translation | USD files plus provenance/rights gate only | Manufacturer- or expert-approved CAD and materials |
 | Rigid/soft/fluid physics | PhysX/advanced mechanics | Actual CPU Bullet rigid bodies, contacts, articulated reference robot, USD PhysicsScene schemas; PhysX runtime not qualified | Independent numeric / experimental benchmarks, GPU PhysX, soft/fluid models |
-| Robots and control | Articulations, ROS2, IK, dynamics, motion | Actual 6R FK/Jacobian/IK, USD joints, Bullet motors, verified URDF inspection/import; ROS2 not yet implemented | Real calibrated OEM robot, trajectory tests, collision planning, ROS2 |
+| Robots and control | Articulations, ROS2, IK, dynamics, motion | Actual 6R FK/Jacobian/IK, USD joints, Bullet motors, verified URDF import; read-only ROS2 message preview and optional publisher | Calibrated OEM robot, collision planning, tested ROS2 DDS/TF and controllers |
 | Sensors | RTX RGB/depth, semantic, LiDAR, contact, IMU | CPU Bullet RGB-D, segmentation and geometric LiDAR + link velocities; no RTX sensing | GPU sensor ground truth, optical/noise calibration, time sync |
 | Isaac-style learning | Massive GPU RL, domain randomization | New seeded CPU Bullet RGB-D/segmentation dataset workflow; actual RL training still absent | RTX photorealism, calibrated sensors, policy learning, tensorized parallel simulation |
 | Industrial twins | Equipment semantics, processes, live telemetry | Asset manifest and authoring foundation | Commissioned data bindings and domain validation |
 | 16GiB RAM / RTX3050 | Selective graceful operation with constrained scene | Advisory GPU budget; standalone CPU software-rendered studio, headless Windows/Linux CI; RTX3050 GUI untested | Actual workstation RAM traces, GUI/fps/accuracy acceptance |
 | Shipping | Signed, supported Windows installer | Not implemented | Clean-room install, license/redistribution review |
+
+## New tested/reference integration boundary
+
+- Three additional isolated physical measurements: contact stability across
+  timesteps, friction-sensitive sliding, and imported actuator speed/travel
+  constraints. These are **not** certified industrial physics.
+- Read-only ROS 2 JointState/LaserScan/Clock conversions from actual
+  Bullet state; optional live rclpy publisher if ROS 2 is separately
+  installed. CI exercises offline contracts; real DDS middleware,
+  TF trees and controller interoperability are not yet qualified.
+- No ROS subscribers or industrial actuation paths have been enabled.
+- Remaining gaps include ROS2 TF/URDF compatibility, actual ROS2 runtime
+  acceptance on targeted platforms, calibrated contact friction/CCD,
+  hardware-in-the-loop trials, and independently measured graphics budgets.
 
 ## Gap-closing work initiated
 

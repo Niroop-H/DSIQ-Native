@@ -59,6 +59,18 @@ class RealEnvironmentCliTests(unittest.TestCase):
             self.assertEqual(len(report["samples"]),3)
             self.assertFalse(report["physically_qualified"])
 
+    def test_extended_reference_physics_and_ros2_preview_cli(self):
+        code,physics=call("physics-extended")
+        self.assertEqual(code,0,physics)
+        self.assertTrue(physics["passed"],physics)
+        self.assertEqual(physics["case_count"],3)
+        code,ros=call("ros2-preview","--steps-per-frame","12",
+                      "--lidar-rays","12")
+        self.assertEqual(code,0,ros)
+        self.assertEqual(len(ros["laser_scan"]["ranges"]),12)
+        self.assertEqual(ros["source"]["step_index"],12)
+        self.assertFalse(ros["source"]["hardware_control_enabled"])
+
     def test_reference_physics_verification_cli(self):
         code,result=call("physics-verify")
         self.assertEqual(code,0,result)

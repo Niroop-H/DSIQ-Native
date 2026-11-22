@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dsiq-native"
+version = "0.1.0"
+description = "DSIQ Native OpenUSD industrial engineering foundation and asset quality gates"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+usd = ["usd-core>=25.05"]
+dev = ["usd-core>=25.05"]
+
+[project.scripts]
+dsiq-native = "dsiq_native.cli:main"
+
+[tool.setuptools]
+packages = ["dsiq_native"]

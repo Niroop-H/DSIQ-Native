@@ -170,6 +170,28 @@ def build_parser() -> argparse.ArgumentParser:
         "dataset-verify",help="Verify every synthetic image and depth file SHA-256"
     )
     sv.add_argument("directory")
+    wc=sub.add_parser("usd-workspace-new",
+                      help="Create layered OpenUSD project (equipment and layout sublayers)")
+    wc.add_argument("project_directory")
+    wi=sub.add_parser("usd-workspace-import",
+                      help="Import verified real USD mesh asset with optional LOD variant")
+    wi.add_argument("project_directory")
+    wi.add_argument("asset_manifest")
+    wi.add_argument("--low-memory-manifest",default=None)
+    wp=sub.add_parser("usd-workspace-place",
+                      help="Author asset pose in independent OpenUSD layout layer")
+    wp.add_argument("project_directory")
+    wp.add_argument("asset_id")
+    wp.add_argument("--xyz",nargs=3,type=float,required=True)
+    wp.add_argument("--yaw",type=float,default=0.)
+    ws=sub.add_parser("usd-workspace-variant",
+                      help="Select actual source or low-memory USD representation")
+    ws.add_argument("project_directory")
+    ws.add_argument("asset_id")
+    ws.add_argument("choice",choices=("source","low_memory"))
+    wl=sub.add_parser("usd-workspace-inspect",
+                      help="Inspect composed USD layers, actual mesh references and assets")
+    wl.add_argument("project_directory")
     return p
 
 
@@ -178,7 +200,30 @@ def main(argv: list[str] | None = None) -> int:
     try:
         command = args.command
         code = 0
-        if command == "dataset-generate":
+        if command == "usd-workspace-new":
+            from .usd_composition import new_workspace
+            result=new_workspace(args.project_directory)
+        elif command == "usd-workspace-import":
+            from .usd_composition import add_verified_asset
+            result=add_verified_asset(
+                args.project_directory,args.asset_manifest,
+                alternative_manifest=args.low_memory_manifest,
+            )
+        elif command == "usd-workspace-place":
+            from .usd_composition import place_asset
+            result=place_asset(
+                args.project_directory,args.asset_id,args.xyz,
+                rotation_z_deg=args.yaw,
+            )
+        elif command == "usd-workspace-variant":
+            from .usd_composition import set_representation
+            result=set_representation(
+                args.project_directory,args.asset_id,args.choice
+            )
+        elif command == "usd-workspace-inspect":
+            from .usd_composition import inspect_workspace
+            result=inspect_workspace(args.project_directory)
+        elif command == "dataset-generate":
             from .synthetic_dataset import DatasetConfig, generate_dataset
             result=generate_dataset(
                 args.output_directory,

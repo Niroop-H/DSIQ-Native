@@ -28,6 +28,42 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 
 **Not yet built/qualified:** standalone RTX rendering integration, validated PhysX articulation simulation on the RTX 3050, MJCF import, ROS 2 bridges, industry-calibrated robot dynamics, RTX-accurate RGB/depth sensors, realistic sensor noise calibration, detailed approved OEM CAD libraries, and production Windows installers. Actual CPU Bullet RGB-D/LiDAR and verified local URDF inspection/import exist, but they are not RTX or physically calibrated replacements. These are explicit milestones, not hidden stubs labeled complete.
 
+## Isaac Sim gap: physics-backed synthetic datasets
+
+A bounded CPU Bullet dataset generator now records *actual* simulation
+state, RGBA image pixels, metric depth, segmentation IDs, randomized
+physics inputs, camera parameters, and SHA-256 integrity records. This
+is original research-grade prototype output, **not** NVIDIA RTX
+Replicator, calibrated sensors or real manufacturer ground truth.
+
+~~~powershell
+python -m pip install -e ".[physics]"
+python -m dsiq_native dataset-generate output-data --frames 8 --seed 1007
+python -m dsiq_native dataset-verify output-data
+~~~
+
+See [Synthetic Perception Data](docs/SYNTHETIC_DATA.md).
+
+## Omniverse gap: layered OpenUSD asset assembly
+
+DSIQ can now create a persistent layered project with editable equipment
+references and separate position/rotation layout opinions. It accepts
+only SHA-256-and-rights-verified real USD sources containing valid mesh
+geometry and can author actual USD representation variants from two
+explicitly supplied sources, without manufacturing fake detailed CAD.
+
+~~~powershell
+python -m pip install -e ".[usd]"
+python -m dsiq_native usd-workspace-new my-project
+python -m dsiq_native usd-workspace-import my-project assets/robot/asset.manifest.json
+python -m dsiq_native usd-workspace-place my-project my_robot --xyz 0 0 1 --yaw 45
+python -m dsiq_native usd-workspace-inspect my-project
+~~~
+
+See [OpenUSD Assembly and Representation Layers](docs/USD_COMPOSITION.md).
+These commands do not constitute a full Omniverse Composer UI or
+multiplayer real-time collaboration.
+
 ## Inertia and Actuator Import Safety
 
 Imported URDF links now require a physically feasible positive-definite

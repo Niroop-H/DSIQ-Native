@@ -4,17 +4,33 @@
 
 | Capability | Omniverse / Isaac-class target | Current DSIQ Native | Required gate |
 |---|---|---|---|
-| OpenUSD | Layers, references, payloads, variants, semantics | Metric stage creation, inspect and referenced real asset attachment | Real USD roundtrip, schema conformance |
+| OpenUSD | Layers, references, payloads, variants, semantics | Metric stage creation, real asset attachment, new layered assembly workspace, external references, representation variants and separate pose edits | Layered roundtrip, performance, safe collaboration and full schema conformance |
 | Native editor | Scene tree, property tools, undo/redo, multi-view | Working standalone Tk CPU robotics studio with live viewport and black/light themes; optional Kit extension unverified on target GPU | Full editor, undo/redo, native Kit RTX device qualification |
 | RTX renderer | Physically based lighting, path tracing, denoising | Not implemented independently; Kit host may supply renderer | RTX 3050 real-device frame and VRAM evidence |
 | Materials/CAD | Real assemblies, calibrated PBR, CAD translation | USD files plus provenance/rights gate only | Manufacturer- or expert-approved CAD and materials |
 | Rigid/soft/fluid physics | PhysX/advanced mechanics | Actual CPU Bullet rigid bodies, contacts, articulated reference robot, USD PhysicsScene schemas; PhysX runtime not qualified | Independent numeric / experimental benchmarks, GPU PhysX, soft/fluid models |
 | Robots and control | Articulations, ROS2, IK, dynamics, motion | Actual 6R FK/Jacobian/IK, USD joints, Bullet motors, verified URDF inspection/import; ROS2 not yet implemented | Real calibrated OEM robot, trajectory tests, collision planning, ROS2 |
 | Sensors | RTX RGB/depth, semantic, LiDAR, contact, IMU | CPU Bullet RGB-D, segmentation and geometric LiDAR + link velocities; no RTX sensing | GPU sensor ground truth, optical/noise calibration, time sync |
-| Isaac-style learning | Massive GPU RL, domain randomization | Not implemented | Policies, repeatability and throughput tests |
+| Isaac-style learning | Massive GPU RL, domain randomization | New seeded CPU Bullet RGB-D/segmentation dataset workflow; actual RL training still absent | RTX photorealism, calibrated sensors, policy learning, tensorized parallel simulation |
 | Industrial twins | Equipment semantics, processes, live telemetry | Asset manifest and authoring foundation | Commissioned data bindings and domain validation |
 | 16GiB RAM / RTX3050 | Selective graceful operation with constrained scene | Advisory GPU budget; standalone CPU software-rendered studio, headless Windows/Linux CI; RTX3050 GUI untested | Actual workstation RAM traces, GUI/fps/accuracy acceptance |
 | Shipping | Signed, supported Windows installer | Not implemented | Clean-room install, license/redistribution review |
+
+## Gap-closing work initiated
+
+- **OpenUSD workflow:** real authored composition projects use stronger
+  layout and weaker equipment layers, verified external geometry
+  references, user-edited transforms, and source/low-memory USD variants.
+  This is not Omniverse's complete collaborative layer stack.
+- **Synthetic data:** real CPU Bullet RGB-D/segmentation capture, randomized
+  starting conditions and physical parameters, immutable checksummed
+  image/depth files, and dataset integrity verification.
+  No RTX optics, learned policies, or calibrated sensor behavior yet.
+- **Remaining P0/P1:** real OEM CAD assemblies, higher-fidelity renderers,
+  measured GPU budgets on RTX 3050, ROS 2 lifecycle integration, calibrated
+  physics, continuous collision safety and hardware acceptance.
+- **Remaining P2:** Isaac Lab-style batched robotics learning, multiphysics,
+  cloud collaboration, large-scene streaming, secure commercial installer.
 
 ## Most recent verified engineering additions
 

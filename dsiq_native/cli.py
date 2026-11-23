@@ -147,6 +147,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     backend.add_argument("--backend",default="bullet_cpu_direct_v1",
         help="Explicit backend identity; no silent fallback to Bullet")
+    compare=sub.add_parser(
+        "physics-cross-backend-check",
+        help="Run genuine Bullet and MuJoCo against identical source-verified URDF"
+    )
+    compare.add_argument("--tolerance",type=float,default=.12,
+        help="Screening joint-position residual in meters; not proof of parity")
     make = sub.add_parser("machine-create",help="Design a functional parametric XYZ gantry")
     make.add_argument("output_directory")
     make.add_argument("--name",default="dsiq_xyz_inspection_gantry")
@@ -871,6 +877,12 @@ def main(argv: list[str] | None = None) -> int:
         elif command == "physics-backend-check":
             from .physics_backend import run_backend_conformance
             result=run_backend_conformance(args.backend)
+            code=0 if result["passed"] else 3
+        elif command == "physics-cross-backend-check":
+            from .physics_backend import run_cross_backend_comparison
+            result=run_cross_backend_comparison(
+                screening_tolerance_m=args.tolerance
+            )
             code=0 if result["passed"] else 3
         elif command == "machine-create":
             from .machine_designer import MachineDesign, save_project

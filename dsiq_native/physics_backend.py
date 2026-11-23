@@ -150,6 +150,8 @@ class BulletPhysicsBackend:
                 "solver_reported_effort":float(effort),
                 "source_max_velocity":float(joint["max_velocity"]),
                 "source_max_effort":float(joint["max_effort"]),
+                "source_lower":float(joint["lower"]),
+                "source_upper":float(joint["upper"]),
             })
         if not states:
             raise RuntimeError("Imported URDF has no actuated joints")

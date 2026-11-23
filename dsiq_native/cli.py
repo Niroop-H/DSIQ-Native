@@ -257,6 +257,8 @@ def build_parser() -> argparse.ArgumentParser:
     urdfmotion.add_argument("--clearance-m",type=float,default=.003,
         help="Required per-sample Bullet geometry separation; not continuous CCD")
     urdfmotion.add_argument("--record-every",type=int,default=24)
+    urdfmotion.add_argument("--max-runtime-tracking-error",type=float,default=None,
+        help="Optional engineering tracking error threshold (in each joint's native units); post-step simulation abort only")
     urdfmotion.add_argument("--motion-limit-file",default=None,
         help="Explicit source-documented joint speed/acceleration/jerk limits")
     urdfmotion.add_argument("--require-reviewed-limits",action="store_true",
@@ -607,19 +609,25 @@ def main(argv: list[str] | None = None) -> int:
                         collision_screen_passed=clearance["collision_screen_passed"],
                     )
                     latch.consume_single_move()
+                tracking=execute_imported_trajectory(
+                    world,plan,record_every=args.record_every,
+                    runtime_clearance_m=args.clearance_m,
+                    max_tracking_error=args.max_runtime_tracking_error,
+                )
+                if not tracking["trajectory_completed"]:
+                    latch.trip("Bullet simulation motion monitor: "+tracking["runtime_abort_reason"])
+                    code=3
                 result={
                     "import":imported,
                     "plan":plan.summary(),
                     "clearance_screening":clearance,
                     "kinematic_motion_limit_audit":motion_audit,
                     "documented_kinematic_gate_used":motion_audit is not None,
-                    "simulation_stop_latch":latch.inspect() if motion_audit is not None else None,
+                    "simulation_stop_latch":latch.inspect() if motion_audit is not None or not tracking["trajectory_completed"] else None,
                     "legacy_reference_motion_without_safety_latch":motion_audit is None,
                     "physical_estop_present":False,
                     "industrial_safety_certified":False,
-                    "tracking":execute_imported_trajectory(
-                        world,plan,record_every=args.record_every,
-                    ),
+                    "tracking":tracking,
                 }
         elif command == "bullet-usd-record":
             from .bullet_runtime import BulletPlayground,BulletSettings

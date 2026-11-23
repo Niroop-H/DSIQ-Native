@@ -17,6 +17,7 @@ import time
 from .bullet_runtime import BulletPlayground, BulletSettings
 from .cad_geometry import extract_verified_urdf_geometry
 from .hardware import inspect_device
+from .inertial_sensor import IdealBulletInertialProbe
 from .scene_editor import SceneEditor
 from .workcell_acceptance import inspect_workcell
 
@@ -102,6 +103,8 @@ class GPUStudio:
         self.base.render.setShaderAuto()
         self.world=BulletPlayground(BulletSettings(payload_count=0))
         self.editor=SceneEditor(self.world)
+        self._imu_probe=IdealBulletInertialProbe(self.world)
+        self._show_imu=False
         self.headless=headless
         self._objects={}
         self._sources={}
@@ -141,6 +144,7 @@ class GPUStudio:
             self.base.accept("space",self.toggle_play)
             self.base.accept("control-o",self.import_dialog)
             self.base.accept("g",self.cycle_grid_snap)
+            self.base.accept("i",self.toggle_imu_overlay)
         self.base.taskMgr.add(self._tick,"dsiq_opengl_workcell_tick")
 
     def _make_lights(self):
@@ -168,6 +172,7 @@ class GPUStudio:
     def _make_ui(self):
         if self.headless:
             self._label=None
+            self._imu_label=None
             return
         from direct.gui.DirectGui import DirectLabel,DirectButton
         self._label=DirectLabel(
@@ -179,6 +184,16 @@ class GPUStudio:
             text_fg=(.92,.95,1.,1),
             pos=(-1.31,0,.91),scale=.65,
         )
+        self._imu_label=DirectLabel(
+            text="IDEAL IMU COM | Paused / no measured acceleration",
+            parent=self.base.aspect2d,
+            text_align=self.P.TextNode.ALeft,
+            text_scale=.033,
+            frameColor=(.025,.055,.075,.92),
+            text_fg=(.75,.93,1.,1.),
+            pos=(-1.31,0,-.51),scale=.65,
+        )
+        self._imu_label.hide()
         self._hint=DirectLabel(
             parent=self.base.aspect2d,
             text="Ctrl+O Import CAD  | Tab Select  | Arrow/Page keys Pose  | Ctrl+Z/Y Undo/Redo  | Space Physics",
@@ -225,6 +240,12 @@ class GPUStudio:
                 scale=.7,command=self.move_selected,
                 extraArgs=list(delta),
             )
+        DirectButton(
+            text="LIVE IMU (I)",text_scale=.040,
+            frameColor=(.06,.13,.21,.92),text_fg=(.91,.95,1.,1.),
+            pos=(-.43,0,.59),scale=.52,
+            command=self.toggle_imu_overlay,
+        )
         DirectButton(
             text="GRID SNAP (G)",text_scale=.040,
             frameColor=(.06,.13,.21,.92),text_fg=(.91,.95,1.,1.),
@@ -514,6 +535,21 @@ class GPUStudio:
         self._sync_poses()
         return result
 
+    def toggle_imu_overlay(self):
+        """Toggle read-only measured Bullet sensor diagnostics.
+
+        Never commands the robot, changes the source CAD or implies
+        physically calibrated hardware. Paused frames show no acceleration.
+        """
+        self._show_imu=not self._show_imu
+        if self._imu_label is not None:
+            if self._show_imu:
+                self._imu_label.show()
+            else:
+                self._imu_label.hide()
+        return {"enabled":self._show_imu,
+                "sensor_calibrated":False,"hardware_command_executed":False}
+
     def toggle_play(self):
         self._paused=not self._paused
 
@@ -537,6 +573,21 @@ class GPUStudio:
         if not self._paused:
             self.world.step(4)
             self._sync_poses()
+        if self._show_imu and self._imu_label is not None and self._frame_count%12==0:
+            sample=self._imu_probe.sample(link_index=5)
+            v=sample["angular_velocity_com_rad_s"]
+            if sample["acceleration_is_valid"]:
+                f=sample["specific_force_com_m_s2"]
+                detail="SPECIFIC FORCE [m/s2] {:7.3f} {:7.3f} {:7.3f}".format(*f)
+            else:
+                detail="SPECIFIC FORCE: no new physics sample"
+            self._imu_label["text"]=(
+                "BULLET COM IMU REFERENCE | NOT CALIBRATED\n"
+                "STEP {} / t={:.3f}s\n".format(
+                    sample["physics_step_index"],sample["simulation_time_s"])
+                +"GYRO [rad/s] {:7.3f} {:7.3f} {:7.3f}\n".format(*v)
+                +detail
+            )
         if self._label is not None and self._frame_count%12==0:
             selected=self._selected or "No CAD loaded"
             self._label["text"]=(

@@ -74,6 +74,70 @@ class ImportedTrajectoryTests(unittest.TestCase):
                 self.world,self.asset,{"actuator_x":.35},duration_s=.01
             )
 
+    def test_execution_refuses_changed_intermediate_samples(self):
+        from dataclasses import replace
+        from dsiq_native.imported_trajectory import validate_execution_plan
+        plan=plan_imported_trajectory(
+            self.world,self.asset,{"actuator_x":.28},
+        )
+        good=validate_execution_plan(self.world,plan)
+        self.assertTrue(good["all_samples_match_plan"])
+        values=list(plan.samples)
+        values[5]=(values[5][0]+.01,)+values[5][1:]
+        mutated=replace(plan,samples=tuple(values))
+        step_before=self.world.step_index
+        with self.assertRaisesRegex(ValueError,"quintic samples"):
+            execute_imported_trajectory(self.world,mutated)
+        self.assertEqual(self.world.step_index,step_before)
+
+    def test_execution_refuses_decimated_or_mistimed_motor_commands(self):
+        from dataclasses import replace
+        plan=plan_imported_trajectory(self.world,self.asset,{"actuator_x":.28})
+        coarse=replace(plan,samples=(plan.samples[0],plan.samples[-1]))
+        with self.assertRaisesRegex(ValueError,"sample count"):
+            execute_imported_trajectory(self.world,coarse)
+        too_fast=replace(plan,timestep_s=plan.timestep_s*.5)
+        with self.assertRaisesRegex(ValueError,"fixed timestep"):
+            execute_imported_trajectory(self.world,too_fast)
+        wrong_speed=replace(plan,declared_speed_limits=tuple(
+            x*2 for x in plan.declared_speed_limits
+        ))
+        with self.assertRaisesRegex(ValueError,"velocity ratings"):
+            execute_imported_trajectory(self.world,wrong_speed)
+        self.assertEqual(self.world.step_index,0)
+
+    def test_post_step_collision_aborts_future_motor_targets(self):
+        plan=plan_imported_trajectory(
+            self.world,self.asset,{"actuator_x":.30,"actuator_y":.10},
+        )
+        # These exact fixture dimensions were first validated against
+        # Bullet in the discrete path-screening regression tests.
+        self.world.spawn_box(
+            side_m=.4,mass_kg=1.,position_m=(-1.6,.9,1.0)
+        )
+        report=execute_imported_trajectory(
+            self.world,plan,runtime_clearance_m=.003,
+        )
+        self.assertFalse(report["trajectory_completed"],report)
+        self.assertFalse(report["runtime_monitor_passed"])
+        self.assertIn("CLEARANCE",report["runtime_abort_reason"])
+        self.assertLess(report["simulated_steps"],report["planned_steps"])
+        self.assertTrue(report["post_step_neutralization_requested"])
+        self.assertEqual(report["simulated_steps"],self.world.step_index)
+        self.assertFalse(report["physical_hardware_qualified"])
+
+    def test_runtime_monitor_parameters_reject_nonfinite_values(self):
+        plan=plan_imported_trajectory(self.world,self.asset,{"actuator_x":.25})
+        for kwargs in (
+            {"runtime_clearance_m":math.nan},
+            {"runtime_clearance_m":-.01},
+            {"max_tracking_error":math.inf},
+            {"max_tracking_error":-1.},
+        ):
+            with self.subTest(kwargs=kwargs),self.assertRaises(ValueError):
+                execute_imported_trajectory(self.world,plan,**kwargs)
+        self.assertEqual(self.world.step_index,0)
+
     def test_must_match_actual_measured_joint_start(self):
         path=plan_imported_trajectory(
             self.world,self.asset,{"actuator_x":.25}

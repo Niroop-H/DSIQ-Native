@@ -343,6 +343,8 @@ def run_cross_backend_comparison(*, screening_tolerance_m: float = .12) -> dict:
     b=run_backend_conformance("mujoco_cpu_direct_v1")
     if not a["passed"] or not b["passed"]:
         raise RuntimeError("Source-bound individual solver conformance failed")
+    from .physics_cross_validation import compare_freefall_between_solvers
+    oracle=compare_freefall_between_solvers()
     source=[x["measured_x_position_m"] for x in a["tests"]]
     other=[x["measured_x_position_m"] for x in b["tests"]]
     delta=abs(source[0]-other[0])
@@ -357,7 +359,10 @@ def run_cross_backend_comparison(*, screening_tolerance_m: float = .12) -> dict:
         "mujoco_position_m":other[0],
         "position_absolute_delta_m":delta,
         "screening_tolerance_m":screening_tolerance_m,
-        "passed":delta<=screening_tolerance_m,
+        "passed":delta<=screening_tolerance_m and oracle["passed"],
+        "analytic_unconstrained_freefall_comparison":oracle,
+        "controller_response_agrees_within_10mm":delta<=.01,
+        "controller_10mm_agreement_achieved":False if delta>.01 else True,
         "individual_backend_conformance":[
             {"backend_id":a["backend_id"],"passed":a["passed"],
              "repeatability_position_delta_m":a["repeatability_position_delta_m"]},

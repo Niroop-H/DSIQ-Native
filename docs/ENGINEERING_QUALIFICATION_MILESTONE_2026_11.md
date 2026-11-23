@@ -25,7 +25,7 @@ review and site acceptance.
 python -m pip install -e ".[robotics]"
 python -m dsiq_native robot-urdf-motion machine.manifest.json --target actuator_x=0.03 --motion-limit-file reviewed-motion-limits.json --require-reviewed-limits --max-runtime-tracking-error 0.02 > simulation-motion.json
 
-python -m dsiq_native physical-compare simulation-motion.json external-measurements.json --tolerance 0.005 --require-uncertainty --coverage-factor 2 > comparison.json
+python -m dsiq_native physical-compare simulation-motion.json external-measurements.json --tolerance 0.005 --require-uncertainty --require-source-binding --coverage-factor 2 > comparison.json
 
 python -m dsiq_native usd-scene-profile real-workcell.usda > usd-scene-profile.json
 ~~~
@@ -35,6 +35,14 @@ Motion-limit sources, tracking thresholds, tolerance and uncertainty must be
 selected by a qualified engineer for a named instrument, machine and use case.
 
 **Input contract for strict external uncertainty analysis**:
+To use `--require-source-binding`, the simulation tracking report must
+contain `source_urdf_sha256` and `joint_units_from_loaded_urdf` as
+recorded from the rights-checked imported URDF. The external measurement
+JSON must specify the **same** `source_urdf_sha256`, and every recorded
+joint unit must match the simulator's source-derived unit. Metadata
+agreement is a reproducibility gate, not independently verified origin
+or calibrated instrument provenance.
+
 The existing `dsiq-external-joint-measurements-v1` JSON allows an optional
 `joint_units` map (one `m` or `rad` value for every simulated joint)
 and each observation can carry `standard_uncertainty` (one standard

@@ -16,6 +16,7 @@ geometry, inspect archive-internal USDZ assets, or certify a SimReady model.
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 import re
 
@@ -55,8 +56,11 @@ def _locate_local(identifier: str, *, root: Path, stage_dir: Path) -> tuple[Path
     """Interpret actual resolved identifiers, not a custom remote resolver."""
     if not isinstance(identifier, str) or not identifier.strip():
         return None, "EMPTY_DEPENDENCY_PATH"
+    # Native Windows absolute drives are allowed only on Windows and only
+    # after resolving beneath the explicitly approved asset root.
+    foreign_windows_drive = bool(_WINDOWS_ABS.match(identifier)) and os.name!="nt"
     if ("://" in identifier or identifier.startswith(("anon:", "asset:", "data:"))
-            or identifier.startswith("//") or _WINDOWS_ABS.match(identifier)):
+            or identifier.startswith(("//", "\\\\")) or foreign_windows_drive):
         return None, "REMOTE_OR_UNSUPPORTED_IDENTIFIER"
     # An in-package USDA identifier like archive.usdz[foo.usda] is not
     # an ordinary on-disk asset and must not be disguised as one.

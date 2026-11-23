@@ -18,6 +18,7 @@ from .bullet_runtime import BulletPlayground, BulletSettings
 from .cad_geometry import extract_verified_urdf_geometry
 from .hardware import inspect_device
 from .inertial_sensor import IdealBulletInertialProbe
+from .render_geometry_cache import render_geometry_fingerprint
 from .scene_editor import SceneEditor
 from .workcell_acceptance import inspect_workcell
 
@@ -36,7 +37,19 @@ def _normal(a,b,c):
     return tuple(x/l for x in n)
 
 
-def _panda_geometry(part, *, P):
+def _panda_geometry(part, *, P, geometry_cache=None):
+    # Each instance gets a distinct GeomNode. Only an identical immutable
+    # Panda3D Geom vertex/index buffer is shared; no CAD or physics is merged.
+    key = render_geometry_fingerprint(part) if geometry_cache is not None else None
+    if geometry_cache is not None and key in geometry_cache:
+        cached, triangles = geometry_cache[key]
+        if triangles != len(part.faces):
+            raise AssertionError("Render-buffer cache has inconsistent triangle accounting")
+        node=P.GeomNode(part.visual_name)
+        node.addGeom(cached)
+        return node
+    if geometry_cache is not None and len(geometry_cache)>=4096:
+        raise ValueError("Unique CAD visual geometry cache capacity exceeded")
     vdata=P.GeomVertexData(
         part.visual_name,P.GeomVertexFormat.getV3n3c4(),P.Geom.UHStatic
     )
@@ -58,6 +71,8 @@ def _panda_geometry(part, *, P):
     triangles.closePrimitive()
     geom=P.Geom(vdata)
     geom.addPrimitive(triangles)
+    if geometry_cache is not None:
+        geometry_cache[key]=(geom,len(part.faces))
     node=P.GeomNode(part.visual_name)
     node.addGeom(geom)
     return node
@@ -120,6 +135,8 @@ class GPUStudio:
         self._last_perf=time.perf_counter()
         self._frame_count=0
         self._triangles=0
+        self._geometry_cache={}
+        self._visual_draw_instances=0
         self._grid_snap_m=0.0
         self._status="Load a licensed URDF or a DSIQ workcell; data is not OEM qualified."
         self._make_lights()
@@ -378,6 +395,31 @@ class GPUStudio:
                 node.setPos(*pos)
                 node.setQuat(self.P.Quat(float(q[3]),float(q[0]),float(q[1]),float(q[2])))
 
+    def render_resource_report(self) -> dict:
+        """CPU-side Panda3D geometry sharing counts, never measured VRAM."""
+        unique_triangles=sum(tris for geom,tris in self._geometry_cache.values())
+        instances=sum(int(part.triangle_count)
+                      for source in self._sources.values()
+                      for part in source["visual_parts"])
+        if instances!=self._triangles or unique_triangles>instances:
+            raise AssertionError("GPU draw-geometry cache accounting inconsistent")
+        return {
+            "schema":"dsiq-opengl-exact-buffer-reuse-v1",
+            "total_authored_triangle_instances":instances,
+            "unique_geom_buffer_triangles":unique_triangles,
+            "reused_triangle_instances":instances-unique_triangles,
+            "verified_source_visual_nodes":self._visual_draw_instances,
+            "unique_geom_buffer_objects":len(self._geometry_cache),
+            "distinct_bullet_assemblies":len(self._objects),
+            "render_data_deduplicated_by_exact_geometry_and_rgba":True,
+            "physical_colliders_merged":False,
+            "materials_altered":False,
+            "gpu_allocated_bytes_verified":False,
+            "gpu_vram_saving_verified":False,
+            "draw_calls_reduced_verified":False,
+            "hardware_performance_qualified":False,
+        }
+
     def add_verified_machine(self, manifest_file: str|Path,
                              *, base_position_m=(0.,1.,0.)):
         # All provenance/source triangles checked BEFORE changing Bullet
@@ -398,6 +440,10 @@ class GPUStudio:
         }
         link_indices[robot["root_link"]]=-1
         link_nodes={}
+        before_cache=set(self._geometry_cache)
+        previous_selected=self._selected
+        previous_triangles=self._triangles
+        previous_visual_instances=self._visual_draw_instances
         try:
             for part in geometry["visual_parts"]:
                 if part.link_name not in link_indices:
@@ -410,7 +456,8 @@ class GPUStudio:
                         ),
                     }
                 geom=self.base.render.attachNewNode(
-                    _panda_geometry(part,P=self.P)
+                    _panda_geometry(part,P=self.P,
+                                    geometry_cache=self._geometry_cache)
                 )
                 geom.reparentTo(link_nodes[part.link_name]["node"])
                 geom.setTwoSided(True)
@@ -418,6 +465,7 @@ class GPUStudio:
             self._sources[aid]=geometry
             self._source_paths[aid]=str(Path(manifest_file).resolve())
             self._triangles+=geometry["triangle_count"]
+            self._visual_draw_instances+=geometry["part_count"]
             self._selected=aid
             self._sync_poses()
             self._refresh_hierarchy()
@@ -426,6 +474,14 @@ class GPUStudio:
                 item["node"].removeNode()
             self.world.p.removeBody(body,physicsClientId=self.world.client)
             self.world.imported_robots.pop(aid,None)
+            self._objects.pop(aid,None)
+            self._sources.pop(aid,None)
+            self._source_paths.pop(aid,None)
+            self._triangles=previous_triangles
+            self._visual_draw_instances=previous_visual_instances
+            self._selected=previous_selected
+            for key in set(self._geometry_cache)-before_cache:
+                del self._geometry_cache[key]
             raise
         self._status=(
             f"Imported {aid}: {geometry['triangle_count']} actual source "
@@ -434,6 +490,8 @@ class GPUStudio:
         return {"asset_id":aid,"triangles":geometry["triangle_count"],
                 "parts":geometry["part_count"],
                 "source_mesh_hashes_validated":True,
+                "unique_render_buffers_in_scene":len(self._geometry_cache),
+                "render_resource_report":self.render_resource_report(),
                 "physical_accuracy_calibrated":False}
 
     def load_workcell(self, path: str|Path) -> dict:
@@ -670,6 +728,7 @@ class GPUStudio:
             "interframe_p50_ms":median,
             "interframe_p95_ms":p95,
             "triangles_in_gpu_scene":self._triangles,
+            "render_resource_reuse":self.render_resource_report(),
             "referenced_assemblies":len(self._objects),
             "budget_advisory":budget,
             "nvidia_rtx_hardware_qualified":False,

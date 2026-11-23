@@ -108,5 +108,39 @@ class OpenGLWorkcellStudioAcceptance(unittest.TestCase):
             finally:
                 app.close()
 
+@unittest.skipUnless(HAS_GL,"Use xvfb-run, Panda3D and DSIQ_GPU_CI=1")
+class MultiAssetRenderReuseAcceptance(unittest.TestCase):
+    def test_multiple_real_gl_machines_share_only_exact_source_geometry(self):
+        from dsiq_native.gpu_studio import benchmark_exact_geometry_instances
+        report=benchmark_exact_geometry_instances(
+            copies=3,frames=18,width=480,height=360
+        )
+        resources=report["source_render_cache"]
+        self.assertEqual(report["actual_distinct_Bullet_bodies"],3)
+        self.assertEqual(resources["distinct_bullet_assemblies"],3)
+        self.assertEqual(resources["verified_source_visual_nodes"],51)
+        self.assertGreater(resources["reused_triangle_instances"],0)
+        self.assertLess(
+            resources["unique_geom_buffer_triangles"],
+            resources["total_authored_triangle_instances"],
+        )
+        self.assertEqual(
+            resources["total_authored_triangle_instances"],
+            report["triangles_in_gpu_scene"],
+        )
+        self.assertEqual(report["referenced_assemblies"],3)
+        self.assertFalse(resources["gpu_vram_saving_verified"])
+        self.assertFalse(report["hydra_or_vulkan_renderer_implemented"])
+        self.assertGreater(report["observed_fps"],0)
+        self.assertGreater(report["assembly_import_wall_seconds"],0)
+
+    def test_invalid_instance_budget_fails_before_gpu_initialization(self):
+        from dsiq_native.gpu_studio import benchmark_exact_geometry_instances
+        for count in (0,1,25,True,2.5):
+            with self.subTest(count=count):
+                with self.assertRaises(ValueError):
+                    benchmark_exact_geometry_instances(copies=count)
+
+
 if __name__=="__main__":
     unittest.main()

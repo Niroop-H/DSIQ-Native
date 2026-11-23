@@ -143,6 +143,77 @@ class SceneEditor:
         return {"operation":"redo",**asdict(edit),
                 "position_m":list(edit.updated_m)}
 
+    def pick_viewport(
+        self, eye_m: Sequence[float], look_at_m: Sequence[float],
+        pixel_xy: Sequence[float], image_wh: Sequence[int],
+        *, fov_degrees: float = 60.,
+        max_distance_m: float = 60.,
+    ) -> dict:
+        """Pick actual Bullet geometry with a perspective-correct camera ray.
+
+        Uses the same vertical FOV and Z-up convention as the current
+        Bullet TinyRenderer camera. Does not claim pixel-perfect agreement
+        with every renderer, lens model or viewport display scaling.
+        """
+        eye=_xyz(eye_m)
+        look=_xyz(look_at_m)
+        if len(pixel_xy)!=2 or len(image_wh)!=2:
+            raise ValueError("Camera picking requires pixel XY and image width/height")
+        if any(type(v) not in (float,int) or not math.isfinite(v)
+               for v in pixel_xy):
+            raise ValueError("Pixel positions must be finite")
+        if any(type(v) is not int or v<2 or v>4096 for v in image_wh):
+            raise ValueError("Image dimensions must be supported integers")
+        width,height=image_wh
+        px,py=[float(v) for v in pixel_xy]
+        if not 0<=px<width or not 0<=py<height:
+            raise ValueError("Pixel is outside the rendered image")
+        if not math.isfinite(fov_degrees) or not 15<=fov_degrees<=120:
+            raise ValueError("Perspective vertical FOV must be 15..120 degrees")
+        if not math.isfinite(max_distance_m) or not .1<=max_distance_m<=100:
+            raise ValueError("Ray distance must be within [.1,100] meters")
+
+        def normalize(v):
+            norm=math.sqrt(sum(x*x for x in v))
+            if norm<1e-9:
+                raise ValueError("Invalid camera direction/up vector")
+            return tuple(x/norm for x in v)
+        def cross(a,b):
+            return (a[1]*b[2]-a[2]*b[1],
+                    a[2]*b[0]-a[0]*b[2],
+                    a[0]*b[1]-a[1]*b[0])
+        forward=normalize(tuple(look[i]-eye[i] for i in range(3)))
+        up=(0.,0.,1.)
+        if abs(sum(forward[i]*up[i] for i in range(3)))>.99:
+            up=(0.,1.,0.)
+        right=normalize(cross(forward,up))
+        camera_up=normalize(cross(right,forward))
+        # Camera projection uses pixel-center coordinates.
+        u=2*((px+.5)/width)-1.
+        v=1.-2*((py+.5)/height)
+        t=math.tan(math.radians(fov_degrees)/2)
+        aspect=width/height
+        direction=normalize(tuple(
+            forward[i]+right[i]*(u*t*aspect)+camera_up[i]*(v*t)
+            for i in range(3)
+        ))
+        end=tuple(eye[i]+direction[i]*max_distance_m for i in range(3))
+        hit=self.world.p.rayTest(
+            eye,end,physicsClientId=self.world.client,
+        )[0]
+        body_id=int(hit[0])
+        selected=next((item for item in self.entities()
+                       if item["body_id"]==body_id),None)
+        return {
+            "hit":body_id>=0,
+            "body_id":body_id,
+            "asset_id":selected["asset_id"] if selected else None,
+            "editable":bool(selected and selected["editable"]),
+            "hit_position_m":list(hit[3]) if body_id>=0 else None,
+            "hit_fraction":float(hit[2]),
+            "selection_type":"GEOMETRY_RAYCAST_REAL_BULLET",
+        }
+
     def status(self):
         return {"entities":self.entities(),"undo_depth":len(self._undo),
                 "redo_depth":len(self._redo),

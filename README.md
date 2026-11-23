@@ -47,7 +47,8 @@ python -m dsiq_native workcell-catalog catalog.json --simulate
 
 The batch catalog checks **every** referenced workcell and uses isolated
 Bullet clients to bound system RAM. A real GUI scene hierarchy now supports
-selecting equipment, editing live Bullet layout transforms and Undo/Redo.
+selecting equipment, **Ctrl+click viewport ray picking**, editing live
+Bullet layout transforms and Undo/Redo.
 Workcell projects can be opened transactionally and saved as new versions.
 An authoring transform is explicitly not a physical robot movement.
 

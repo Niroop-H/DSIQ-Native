@@ -51,6 +51,23 @@ class NativeSceneEditorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.editor.undo()
 
+    def test_perspective_raycast_picks_real_viewport_entity(self):
+        hit=self.editor.pick_viewport(
+            eye_m=(-1.4,3.,1.),
+            look_at_m=(-1.4,1.05,1.),
+            pixel_xy=(79.5,59.5),
+            image_wh=(160,120),
+        )
+        self.assertTrue(hit["hit"])
+        self.assertEqual(hit["asset_id"],"payload_000")
+        self.assertTrue(hit["editable"])
+        self.assertEqual(hit["selection_type"],"GEOMETRY_RAYCAST_REAL_BULLET")
+        self.assertTrue(hit["hit_position_m"])
+        with self.assertRaises(ValueError):
+            self.editor.pick_viewport((0,0,1),(0,0,0),(-1,0),(160,120))
+        with self.assertRaises(ValueError):
+            self.editor.pick_viewport((0,0,1),(0,0,1),(2,2),(160,120))
+
     def test_imported_robot_pose_can_be_edited_with_real_bullet(self):
         from dsiq_native.machine_designer import MachineDesign,save_project
         with TemporaryDirectory() as tmp:

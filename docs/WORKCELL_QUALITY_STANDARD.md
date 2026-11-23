@@ -87,6 +87,9 @@ python -m dsiq_native studio --theme black
 The scene hierarchy inspector displays actual Bullet machine bodies
 and payloads, provenance class and XYZ transforms. Editable assets
 support real simulation-world position changes, Undo and Redo.
+**Ctrl+click** the software-rendered 3D viewport to raycast against actual
+Bullet collision shapes and select the corresponding scene-tree entity.
+This is real geometry picking, not selecting an illustrative screenshot.
 These are **authoring teleports**, not commanded robot movements.
 
 Workcells menu:

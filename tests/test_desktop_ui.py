@@ -205,6 +205,26 @@ class DesktopStudioUiSmokeTests(unittest.TestCase):
             self.assertTrue(audit["runtime_passed"],audit)
             self.assertFalse(audit["certified"])
 
+    def test_viewport_control_click_selects_real_collision_body(self):
+        from types import SimpleNamespace
+        from dsiq_native.camera import FreeCamera
+        app=self.app
+        app.root.update()
+        app.set_camera_mode("free")
+        # The installed reference payload is at (-1.4, 1.05, 1.0)m.
+        app._free_camera=FreeCamera.look_at(
+            (-1.4,3.,1.),(-1.4,1.05,1.)
+        )
+        app._render()
+        app.root.update()
+        result=app._viewport_select(SimpleNamespace(
+            x=app._viewport.winfo_width()/2-.5,
+            y=app._viewport.winfo_height()/2-.5,
+        ))
+        self.assertEqual(result,"break")
+        self.assertEqual(app._editor_selected,"payload_000")
+        self.assertTrue(app._editor_tree.exists("asset:payload_000"))
+
     def test_reset_scene_retains_valid_ui(self):
         app = self.app
         app.root.update()

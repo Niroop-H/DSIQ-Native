@@ -293,6 +293,7 @@ class DesktopStudio:
         self._viewport.pack(fill="both", expand=True)
         self._viewport.configure(takefocus=True)
         self._viewport.bind("<ButtonPress-1>", self._mouse_down)
+        self._viewport.bind("<Control-ButtonPress-1>", self._viewport_select)
         self._viewport.bind("<B1-Motion>", self._mouse_move)
         self._viewport.bind("<ButtonPress-3>", self._mouse_down)
         self._viewport.bind("<B3-Motion>", self._mouse_move)
@@ -301,7 +302,7 @@ class DesktopStudio:
         self._viewport.bind("<Button-4>", lambda e: self._zoom(0.88))
         self._viewport.bind("<Button-5>", lambda e: self._zoom(1.12))
         self._label(
-            middle, "Orbit: drag/wheel  ·  Free: click viewport then WASD, Q/E, mouse-look  ·  Shift=sprint",
+            middle, "Ctrl+click to select geometry  ·  Orbit: drag/wheel  ·  Free: WASD, Q/E, mouse-look  ·  Shift=sprint",
             muted=True, size=9
         ).pack(fill="x", pady=(9,4))
         self._metrics = self._label(
@@ -1100,6 +1101,48 @@ class DesktopStudio:
             self._free_camera=FreeCamera.look_at(
                 (2.2,-3.0,1.8),self._orbit_center,
             )
+
+    def _viewport_select(self,event):
+        """Ctrl+click actual collision geometry and select its scene-tree entity."""
+        if self._latest is None:
+            raise RuntimeError("Viewport has no measured Bullet frame yet")
+        image=self._latest
+        # PhotoImage is centered (not scaled) in the Tk label viewport.
+        x=float(event.x) - max(0,self._viewport.winfo_width()-image.width)/2
+        y=float(event.y) - max(0,self._viewport.winfo_height()-image.height)/2
+        if not (0<=x<image.width and 0<=y<image.height):
+            self._status("Clicked outside the actual rendered image")
+            return "break"
+        if self._camera_mode=="free":
+            eye,look=self._free_camera.eye_target(sight_distance_m=3.)
+        else:
+            eye=orbit_eye(
+                self._orbit_yaw,self._orbit_pitch,
+                self._orbit_distance,self._orbit_center
+            )
+            look=self._orbit_center
+        hit=self._scene_editor.pick_viewport(
+            eye,look,(x,y),(image.width,image.height)
+        )
+        if hit["asset_id"]:
+            self.open_scene_explorer()
+            path="asset:"+hit["asset_id"]
+            if self._editor_tree.exists(path):
+                self._editor_tree.selection_set(path)
+                self._editor_tree.see(path)
+                self._editor_choose()
+            self._status(
+                f"Selected raycast geometry: {hit['asset_id']}; "
+                f"editable={hit['editable']}. "
+                "Scene pose editing is not physical robot motion."
+            )
+        else:
+            self._status(
+                f"Bullet raycast hit body #{hit['body_id']} "
+                "but it is not a selectable authored machine/payload."
+                if hit["hit"] else "No selectable physics geometry at this pixel"
+            )
+        return "break"
 
     def _mouse_down(self,event):
         self._viewport.focus_set()

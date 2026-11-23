@@ -35,6 +35,17 @@ class TrueMotionTraceAcceptance(unittest.TestCase):
         self.assertEqual(result["fixture"],"self_authored_xyz_gantry_not_oem")
         self.assertEqual(len(result["backend_measurements"]),2)
         self.assertGreater(result["trajectory_comparison"]["position_rmse_m"],0.)
+        self.assertTrue(
+            result["trajectory_comparison"]["within_final_tolerance"],result
+        )
+        self.assertLessEqual(
+            result["trajectory_comparison"]["position_peak_difference_m"],.010,
+            result["trajectory_comparison"]
+        )
+        self.assertTrue(
+            result["all_source_speed_and_effort_envelopes_satisfied"],result
+        )
+
         self.assertFalse(result["comparable_motor_control_laws_calibrated"])
         self.assertFalse(result["safety_certified"])
         self.assertTrue(all(

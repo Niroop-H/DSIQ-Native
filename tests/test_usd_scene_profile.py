@@ -58,6 +58,21 @@ class ReadOnlySceneProfileTests(unittest.TestCase):
         self.assertFalse(result["renderer_vram_or_fps_savings_measured"])
         self.assertEqual(before,hashlib.sha256(self.path.read_bytes()).hexdigest())
 
+    def test_native_cli_profile_exports_machine_readable_report(self):
+        from contextlib import redirect_stdout,redirect_stderr
+        from io import StringIO
+        import json
+        from dsiq_native.cli import main
+        out,err=StringIO(),StringIO()
+        with redirect_stdout(out),redirect_stderr(err):
+            status=main(["usd-scene-profile",str(self.path)])
+        self.assertEqual(status,0,err.getvalue())
+        data=json.loads(out.getvalue())
+        self.assertEqual(data["exact_local_geometry_reuse_groups"],1)
+        self.assertEqual(data["source_stage_sha256"],
+                         hashlib.sha256(self.path.read_bytes()).hexdigest())
+        self.assertFalse(data["stage_authoring_performed"])
+
     def test_bounded_prim_count_fails_without_modifying_source(self):
         from dsiq_native.usd_scene_profile import profile_usd_scene
         before=self.path.read_bytes()

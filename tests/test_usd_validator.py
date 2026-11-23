@@ -59,6 +59,51 @@ class USDSceneValidatorTests(unittest.TestCase):
             self.assertIn("MESH_TOPOLOGY_COUNT",
                          [e["rule_id"] for e in result["errors"]])
 
+    def test_zero_area_collinear_triangle_and_repeated_face_vertices(self):
+        from pxr import Usd, UsdGeom, Gf
+        from dsiq_native.usd_validator import validate_usd_stage
+        with TemporaryDirectory() as root:
+            path=self._scene(root)
+            stage=Usd.Stage.Open(str(path))
+            mesh=UsdGeom.Mesh.Get(stage,"/World/Fixture")
+            mesh.GetPointsAttr().Set([
+                Gf.Vec3f(0.,0.,0.),
+                Gf.Vec3f(1.,1.,1.),
+                Gf.Vec3f(2.,2.,2.),
+            ])
+            stage.GetRootLayer().Save()
+            result=validate_usd_stage(path)
+            self.assertFalse(result["passed"])
+            self.assertEqual(result["counts"]["degenerate_mesh_faces"],1)
+            self.assertIn("MESH_DEGENERATE_GEOMETRY",
+                          [e["rule_id"] for e in result["errors"]])
+            mesh.GetPointsAttr().Set([
+                Gf.Vec3f(0.,0.,0.),
+                Gf.Vec3f(1.,0.,0.),
+                Gf.Vec3f(0.,1.,0.),
+            ])
+            mesh.GetFaceVertexIndicesAttr().Set([0,1,1])
+            stage.GetRootLayer().Save()
+            result=validate_usd_stage(path)
+            self.assertEqual(result["counts"]["degenerate_mesh_faces"],1)
+
+    def test_tiny_non_degenerate_triangle_is_not_falsely_rejected(self):
+        from pxr import Usd, UsdGeom, Gf
+        from dsiq_native.usd_validator import validate_usd_stage
+        with TemporaryDirectory() as root:
+            path=self._scene(root)
+            stage=Usd.Stage.Open(str(path))
+            mesh=UsdGeom.Mesh.Get(stage,"/World/Fixture")
+            mesh.GetPointsAttr().Set([
+                Gf.Vec3f(0.,0.,0.),
+                Gf.Vec3f(1e-9,0.,0.),
+                Gf.Vec3f(0.,1e-9,0.),
+            ])
+            stage.GetRootLayer().Save()
+            result=validate_usd_stage(path)
+            self.assertTrue(result["passed"],result["errors"])
+            self.assertEqual(result["counts"]["degenerate_mesh_faces"],0)
+
     def test_usd_stage_missing_canonical_units_and_default_is_rejected(self):
         from pxr import Usd, UsdGeom
         from dsiq_native.usd_validator import validate_usd_stage

@@ -4,6 +4,10 @@
 
 **Reality:** the table describes a forward engineering target. It does not state current equivalence to NVIDIA software or that future GPU performance is already achieved.
 
+## GPU-first execution decision (23 November 2026)
+
+The engineering execution strategy is **GPU-first** for performance and scale: genuine CUDA Warp computation and later GPU multibody physics, CUDA sensor generation, Vulkan/Hydra rendering and GPU RL. CPU Bullet/MuJoCo remain reference paths, not the primary long-term throughput target. No GPU benchmark is counted as achieved from CPU Warp tests or Mesa software OpenGL; strict CUDA device selection and actual hardware acceptance are mandatory. See [GPU_FIRST_EXECUTION_ARCHITECTURE.md](GPU_FIRST_EXECUTION_ARCHITECTURE.md).
+
 ## Program-wide architecture
 
 - **OpenUSD scene authority:** composed layers, references, payloads, variants and stable asset provenance, with read-only validation before any import or optimization.
@@ -19,9 +23,9 @@
 | 1. OpenUSD core | Stage, layers, references, variants, telemetry, scene profile | Payload streaming, composition correctness, purpose/visibility, instancing, collections, schema support; large multi-layer fixture |
 | 2. Asset validation and provenance | Source hash/rights checks, read-only USD mesh/physics/material validator and resolved local dependency-hash gate | Versioned pluggable validation rules, missing-asset path checks, remote namespace resolver; adversarial USD corpus |
 | 3. High-end renderer | Real Panda3D OpenGL editor/TinyRenderer CPU; exact source buffer reuse; separately verified 4-robot render and 301-visual, one-robot stress fixture with actual GL timing/p99; not qualified hardware | Hydra/Vulkan raster PBR, progressive LOD/streaming, high-quality materials/shadows, ray/path tracing, physically measured device throughput |
-| 4. Physics engines | C++ Bullet via PyBullet and optional real MuJoCo CPU adapter; independent solver reports | Newton, PhysX, GPU-batched solver, deformables/particles, stable friction/contact parity; matched numerical benchmarks |
+| 4. Physics engines | Bullet/MuJoCo CPU reference and actual NVIDIA Warp native CUDA-selectable source-limited 1-axis/3-axis effective-mass actuator kernels; CPU kernel equation CI passed | Real PhysX/Newton CUDA coupled multibody/contact dynamics, deformables, full GPU integration and source-matched physical conformance |
 | 5. Robotics and articulated machines | Source-verified URDF and real CPU motor actuation, preflight limits, motion analysis | Collision-checked articulated planning, robot controllers and hardware-safe interfaces; real OEM measurements |
-| 6. Physical AI | Seeded Bullet reference policy and basic randomized environments | GPU/vector RL, imitation learning, policy export, task learning, sim-to-real benchmarks with held-out calibration |
+| 6. Physical AI | Seeded Bullet CPU policy plus CUDA-selectable Warp batched reduced-order 1/3-axis state updates; no GPU training yet | True GPU-vector RL, policy gradient training, domain randomization, external sim-to-real acceptance |
 | 7. Sensors | Bullet RGB-D, idealized LiDAR, link-COM inertial probe with actual solver velocity and finite-difference force, read-only ROS 2 transport | Render-consistent cameras, radar, LiDAR, IMU and calibration/noise/time-sync; reproducible sensor residuals |
 | 8. Synthetic data | Seeded CPU generator, COCO export and SHA checks | Camera/depth/normals/semantic instance AOVs, material and lighting randomization graph, KITTI/YOLO/BOP export |
 | 9. CAD / interop | Rights-checked URDF, geometry meshes and USD | STEP/IGES kernel, Blender/glTF/FBX, authoring constraints, CAD tessellation accuracy and assembly round trip |
@@ -32,7 +36,7 @@
 | 14. Streaming / thin clients | Existing native desktop and CLI | Remote interactive render sessions, authenticated WebRTC/WebGPU review, headless session lifecycle |
 | 15. Industrial digital twins | Evidence-qualified workcell schemas and source motion recording | OPC UA/MQTT, calibrated machine-specific HMI/process models, time-aligned telemetry, stale data handling |
 | 16. AI agents and scene workflows | Python APIs available for future automation | Constrained MCP tools, explainable scene authoring, safe execution approvals and reproducible agent benchmarks |
-| 17. System optimisation | Measured OpenGL p50/p95/p99 wall frames, real-source Panda3D vertex/index buffer deduplication, reference-only CAD stress harness and read-only USD reuse profiler | USD deferred loading, process GPU VRAM/RAM attribution, culling, LOD, multigpu portability, back-pressure and matched target-hardware FPS/VRAM/RAM |
+| 17. System optimisation | Measured OpenGL p50/p95/p99, exact source render-buffer reuse, Warp source-driven device array admission and native kernel wall timing (CPU conformance only) | Verified CUDA RTX3050 throughput/VRAM, USD streaming, GPU culling/LOD, GPU scheduling, multi-GPU/device recovery, calibrated peak process memory |
 | 18. Enterprise/security/release | SBOM, trust-gated updates, unsigned Windows previews, vulnerability audit | Signed production releases, third-party licence clearance, secure asset services, identity, audit and support |
 | 19. SimReady / content fidelity | Reference gantry, environment fixtures, source import | Real licensed multi-machine content library with calibrated materials/colliders, provenance and external acceptance |
 | 20. Multi-device computing | CPU baseline, one OpenGL graphics path | Vulkan-class AMD/Intel/NVIDIA GPU compatibility, RTX accelerated path and HPC scale; device matrix verified on hardware |

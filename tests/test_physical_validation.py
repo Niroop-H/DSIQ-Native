@@ -113,6 +113,35 @@ class ExternalMotionComparisonTests(unittest.TestCase):
                 self.sim,self.observed,require_uncertainty=True,
             )
 
+    def test_strict_urdf_source_hash_and_units_bind_measurement(self):
+        sim=json.loads(self.sim.read_text())
+        sim["tracking"]["source_urdf_sha256"]="c"*64
+        sim["tracking"]["joint_units_from_loaded_urdf"]={"actuator_x":"m"}
+        self.sim.write_text(json.dumps(sim))
+        measured=json.loads(self.observed.read_text())
+        measured["source_urdf_sha256"]="c"*64
+        self.observed.write_text(json.dumps(measured))
+        report=compare_measured_robot_motion(
+            self.sim,self.observed,require_source_binding=True
+        )
+        self.assertTrue(report["simulation_source_sha256_matches_external_metadata"])
+        self.assertTrue(report["simulation_urdf_joint_units_present"])
+        measured["observations"][0]["unit"]="rad"
+        self.observed.write_text(json.dumps(measured))
+        with self.assertRaisesRegex(ValueError,"loaded source URDF"):
+            compare_measured_robot_motion(self.sim,self.observed)
+        measured["observations"][0]["unit"]="m"
+        measured["source_urdf_sha256"]="d"*64
+        self.observed.write_text(json.dumps(measured))
+        with self.assertRaisesRegex(ValueError,"does not match"):
+            compare_measured_robot_motion(self.sim,self.observed)
+
+    def test_strict_source_identity_requires_source_metadata(self):
+        with self.assertRaisesRegex(ValueError,"source URDF SHA256"):
+            compare_measured_robot_motion(
+                self.sim,self.observed,require_source_binding=True
+            )
+
     def test_bad_external_records_rejected(self):
         doc=json.loads(self.observed.read_text())
         doc["observations"][0]["joint"]="not_same_mechanism"

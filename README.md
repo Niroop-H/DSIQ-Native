@@ -102,6 +102,18 @@ The dependency auditor uses genuine Pixar OpenUSD dependency resolution and reco
 
 See [USD dependency audit](docs/USD_DEPENDENCY_AUDIT.md) and [CPU inertial probe](docs/SENSOR_INERTIAL_REFERENCE.md).
 
+## Large-scene OpenGL diagnostics — genuine frames, no fake factory physics
+
+```powershell
+python -m pip install -e ".[gpu]"
+python -m dsiq_native gpu-instancing-benchmark --copies 4 --frames 120 --screenshot four-robots.png
+python -m dsiq_native gpu-visual-load-benchmark --copies 300 --frames 120 --screenshot visual-stress.png
+```
+
+The first benchmark tests shared immutable render buffers across **four independently simulated, source-verified Bullet gantries** (the supported workcell limit). The second draws **301 gantry visuals** but runs **only one real Bullet body**—300 are explicitly frozen graphics-only source references for raster-performance testing. The latter processes 111,972 source triangle instances; they are repeated, not unique OEM industrial CAD. Both report real OpenGL renderer, FPS, p50/p95/p99 timings and resource reuse; neither claims measured per-process VRAM savings or RTX/Hydra/Vulkan implementation.
+
+See [exact rendering resource reuse and limits](docs/NATIVE_OPENGL_GEOMETRY_REUSE.md). Hardware-specific acceptance on a real RTX 3050 remains outstanding.
+
 ## Developer checks
 
 ```powershell

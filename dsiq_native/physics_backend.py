@@ -208,22 +208,31 @@ class BulletPhysicsBackend:
 
 
 def available_backend_capabilities() -> list[dict]:
-    """Supported backends only; do not advertise unimplemented solvers."""
+    """Report only implemented backends with importable real native libraries."""
+    from importlib.util import find_spec
     from .bullet_runtime import PHYSICS_DT
-    return [BackendCapabilities(
+    choices=[BackendCapabilities(
         "bullet_cpu_direct_v1", "verified_local_urdf", "fixed_step_explicit",
         PHYSICS_DT, True, False, True, True, True, False, False, False,
     ).as_dict()]
+    if find_spec("mujoco") is not None:
+        choices.append(BackendCapabilities(
+            "mujoco_cpu_direct_v1", "verified_local_urdf", "fixed_step_explicit",
+            PHYSICS_DT, True, False, True, True, True, False, False, False,
+        ).as_dict())
+    return choices
 
 
 def open_backend(name: str = "bullet_cpu_direct_v1") -> PhysicsBackendWorld:
-    if name!="bullet_cpu_direct_v1":
-        raise ValueError(
-            f"Physics backend {name!r} is unavailable. "
-            "MuJoCo, Newton and PhysX require independent implementation "
-            "and conformance; no silent Bullet fallback."
-        )
-    return BulletPhysicsBackend()
+    if name=="bullet_cpu_direct_v1":
+        return BulletPhysicsBackend()
+    if name=="mujoco_cpu_direct_v1":
+        from .mujoco_backend import MuJoCoPhysicsBackend
+        return MuJoCoPhysicsBackend()
+    raise ValueError(
+        f"Physics backend {name!r} is unavailable. "
+        "Newton and PhysX are not implemented; no silent solver fallback."
+    )
 
 
 def run_backend_conformance(name: str = "bullet_cpu_direct_v1") -> dict:
@@ -315,3 +324,46 @@ def run_backend_conformance(name: str = "bullet_cpu_direct_v1") -> dict:
             "usd_physics_import_implemented":False,
             "industrial_safety_or_oem_calibration_qualified":False,
         }
+
+
+def run_cross_backend_comparison(*, screening_tolerance_m: float = .12) -> dict:
+    """Compare actual Bullet and MuJoCo on one identical verified reference URDF.
+
+    The engines use their explicitly different motor implementations. The
+    absolute position residual is an interoperability screening measurement,
+    not a proof of matching dynamics, contact or numerical accuracy.
+    """
+    if (isinstance(screening_tolerance_m,bool) or
+        not isinstance(screening_tolerance_m,(int,float)) or
+        not math.isfinite(screening_tolerance_m) or
+        not 0 < screening_tolerance_m <= .25):
+        raise ValueError("Cross-solver screening tolerance must be in (0,0.25] meters")
+    a=run_backend_conformance("bullet_cpu_direct_v1")
+    b=run_backend_conformance("mujoco_cpu_direct_v1")
+    if not a["passed"] or not b["passed"]:
+        raise RuntimeError("Source-bound individual solver conformance failed")
+    source=[x["measured_x_position_m"] for x in a["tests"]]
+    other=[x["measured_x_position_m"] for x in b["tests"]]
+    delta=abs(source[0]-other[0])
+    return {
+        "schema":"dsiq-two-real-solvers-screening-v1",
+        "identical_self_authored_source_type":True,
+        "reference_joint":"actuator_x",
+        "fixture_command_m":.20,
+        "fixed_steps":100,
+        "timestep_s":PHYSICS_DT,
+        "bullet_position_m":source[0],
+        "mujoco_position_m":other[0],
+        "position_absolute_delta_m":delta,
+        "screening_tolerance_m":screening_tolerance_m,
+        "passed":delta<=screening_tolerance_m,
+        "individual_backend_conformance":[
+            {"backend_id":a["backend_id"],"passed":a["passed"],
+             "repeatability_position_delta_m":a["repeatability_position_delta_m"]},
+            {"backend_id":b["backend_id"],"passed":b["passed"],
+             "repeatability_position_delta_m":b["repeatability_position_delta_m"]},
+        ],
+        "different_reference_motor_laws":True,
+        "same_oem_calibration_or_solver_equivalence_proven":False,
+        "hardware_safety_qualified":False,
+    }

@@ -35,12 +35,12 @@ Motion-limit sources, tracking thresholds, tolerance and uncertainty must be
 selected by a qualified engineer for a named instrument, machine and use case.
 
 **Input contract for strict external uncertainty analysis**:
-The existing \`dsiq-external-joint-measurements-v1\` JSON allows an optional
-\`joint_units\` map (one \`m\` or \`rad\` value for every simulated joint)
-and each observation can carry \`standard_uncertainty\` (one standard
+The existing `dsiq-external-joint-measurements-v1` JSON allows an optional
+`joint_units` map (one `m` or `rad` value for every simulated joint)
+and each observation can carry `standard_uncertainty` (one standard
 deviation, same unit as measured position). In strict mode every observation
 must have this finite nonnegative value. For each joint the software checks
-\`max(abs(predicted - observed) + k * u) <= tolerance\`, where \`k\` is
+`max(abs(predicted - observed) + k * u) <= tolerance`, where `k` is
 the supplied coverage multiplier. This *conservative comparison rule*
 does not constitute a formal confidence interval: it does not include
 simulation uncertainty, correlated instrumentation errors or temporal

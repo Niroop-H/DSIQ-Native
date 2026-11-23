@@ -269,6 +269,9 @@ jobs:
           mkdir -p build/gpu
           xvfb-run -a -s "-screen 0 1280x720x24" python -m dsiq_native gpu-benchmark --frames 48 --width 640 --height 480 --screenshot build/gpu/opengl-scene.png > build/gpu/opengl-report.json
           python -c 'import json; d=json.load(open("build/gpu/opengl-report.json")); assert d["triangles_in_gpu_scene"]>200 and d["observed_fps"]>0; assert not d["nvidia_rtx_hardware_qualified"]'
+          xvfb-run -a -s "-screen 0 1280x720x24" python -m dsiq_native gpu-instancing-benchmark --copies 6 --frames 36 --width 640 --height 480 --screenshot build/gpu/source-verified-instanced-gantries.png > build/gpu/instanced-geometry-report.json
+          python -c 'import json; r=json.load(open("build/gpu/instanced-geometry-report.json")); s=r["source_render_cache"]; assert r["actual_distinct_Bullet_bodies"]==6 and s["distinct_bullet_assemblies"]==6 and s["verified_source_visual_nodes"]==102; assert s["unique_geom_buffer_triangles"]<s["total_authored_triangle_instances"] and s["reused_triangle_instances"]>0; assert r["observed_fps"]>0 and not s["gpu_vram_saving_verified"] and not r["hydra_or_vulkan_renderer_implemented"]'
+
       - name: Upload real framebuffer capture + measured timings
         uses: actions/upload-artifact@v4
         with:

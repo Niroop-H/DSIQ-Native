@@ -180,8 +180,10 @@ jobs:
       - name: Install ROS message packages and validate live DDS pub/sub
         shell: bash
         run: |
-          set -euo pipefail
+          set -eo pipefail
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs ros-jazzy-rosgraph-msgs ros-jazzy-geometry-msgs
+          # ROS 2 setup scripts may reference unset shell variables by design.
           source /opt/ros/jazzy/setup.bash
+          set -u
           /usr/bin/python3 scripts/ros2_middleware_acceptance.py build/reference-scenes/ros2-preview-tf.json

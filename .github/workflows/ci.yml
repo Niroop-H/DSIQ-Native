@@ -192,7 +192,12 @@ jobs:
           # Run ACTUAL DSIQ ros2-stream executable with isolated Bullet client,
           # not only synthetic message replay. Keep ROS distro packages visible.
           /usr/bin/python3 -m venv --system-site-packages /tmp/dsiq-ros-env
-          /tmp/dsiq-ros-env/bin/python -m pip install -e ".[physics]"
+          /tmp/dsiq-ros-env/bin/python -m pip install -e .
+          # The default 3.2.7 PyPI Linux distribution lacks CPython 3.12
+          # wheels and would compile Bullet C++ from source inside ROS Jazzy.
+          # Use the tested prebuilt x86_64 CPython 3.12-compatible fork.
+          /tmp/dsiq-ros-env/bin/python -m pip install "numpy>=1.26,<2" "pybullet-arm64==3.2.8" --only-binary=:all:
+          /tmp/dsiq-ros-env/bin/python -c "import pybullet; print('ROS Jazzy Bullet ABI loaded')"
           /tmp/dsiq-ros-env/bin/python scripts/ros2_native_publisher_acceptance.py
 
   opengl-source-cad-studio:

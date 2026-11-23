@@ -25,6 +25,18 @@ A successful report is derived from actual GUI-rasterized OpenGL frames. It cont
 
 **CI:** `.github/workflows/ci.yml` runs a Mesa/Xvfb scene containing four separate validated reference gantries, asserts four **distinct Bullet bodies**, verifies precise GPU buffer reuse and saves a real framebuffer capture and JSON timing report in the `dsiq-native-opengl-software-ci` artifact.
 
+## Separate large graphics-only stress path
+
+The integrated real Bullet workcell remains capped at **four imported robots**. For larger rendering loads, DSIQ now offers a **distinct graphics-only benchmark** that creates many static visual references from one source-verified gantry at a captured real Bullet link pose:
+
+```powershell
+python -m dsiq_native gpu-visual-load-benchmark --copies 256 --frames 48 --width 1280 --height 720 --screenshot visual-load.png > gpu-visual-load.json
+```
+
+The above is a suggested on-device test, not a published FPS result. The new command supports **1–512 extra static CAD copies**, additionally bounded to 500,000 scene triangles. Its initial software-OpenGL CI fixture uses **96 static visual copies** plus one real Bullet prototype: 97 visual assemblies, **one physics body**, no additional actuators. Every static reference keeps a frozen snapshot of verified source-geometry link transforms and identical render data; it has no independent physical dynamics or sensors.
+
+The benchmark reports actual graphics-frame timings, authored scene triangle instances, unique draw-geometry buffers, and clear separate counts for reference copies and actual Bullet bodies. This is a **graphics resource stress test**, not a simulated industrial production line.
+
 ## What metrics mean
 
 - `total_authored_triangle_instances`: actual triangles authored in the live render graph, including all machines.

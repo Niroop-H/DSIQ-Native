@@ -114,3 +114,18 @@ regression signal. The industrial_release_ready property remains FALSE
 until external machine measurements, physical validation, production
 safety and hardware qualification have been obtained. A green CI test
 is not a replacement for those domain-specific proofs.
+
+
+## URDF rigid-body inertia validation improvement
+
+URDF link inertia matrices are required to be symmetric positive-definite
+AND physically feasible in their **principal moment coordinate system**.
+The importer now computes all three eigenvalues of each real symmetric 3x3
+tensor (without requiring a Python numerical package in the contracts job)
+and checks that no principal moment exceeds the sum of the other two.
+This rejects otherwise-positive-definite off-diagonal matrices that pass
+diagonal-only moment tests yet cannot describe a physical rigid body.
+
+This is an input feasibility test; it does not measure real equipment
+mass, center of gravity or principal inertia values, which still require
+source measurements and independent engineering review.

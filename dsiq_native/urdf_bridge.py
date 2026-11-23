@@ -77,6 +77,39 @@ def _verify_inertia_tensor(elements: dict[str, float], link_name: str) -> None:
         raise ValueError(
             f"Link {link_name} violates rigid-body inertia moment inequalities"
         )
+    principal=_principal_moments(elements)
+    if (not all(math.isfinite(v) and v>0 for v in principal)
+            or principal[0]+principal[1]+1e-12*max(1.,principal[2])<principal[2]):
+        raise ValueError(
+            f"Link {link_name} has principal inertia moments incompatible with a rigid body"
+        )
+
+
+def _principal_moments(tensor: dict[str,float]) -> tuple[float,float,float]:
+    """Eigenvalues of a real symmetric 3x3 inertia tensor, pure Python.
+
+    Uses the stable closed-form symmetric-matrix solution; eigenvalues are
+    invariant to a rigid rotation of the URDF inertial coordinate frame.
+    """
+    xx,yy,zz=[tensor[k] for k in ("ixx","iyy","izz")]
+    xy,xz,yz=[tensor[k] for k in ("ixy","ixz","iyz")]
+    off=xy*xy+xz*xz+yz*yz
+    if off==0.:
+        return tuple(sorted((xx,yy,zz)))
+    q=(xx+yy+zz)/3.
+    p2=((xx-q)**2+(yy-q)**2+(zz-q)**2+2*off)/6.
+    if not math.isfinite(p2) or p2<=0.:
+        raise ValueError("Nonfinite symmetric inertia eigen decomposition")
+    p=math.sqrt(p2)
+    ax,ay,az=(xx-q)/p,(yy-q)/p,(zz-q)/p
+    bx,by,bz=xy/p,xz/p,yz/p
+    det=(ax*(ay*az-bz*bz)-bx*(bx*az-by*bz)+by*(bx*bz-by*ay))
+    r=max(-1.,min(1.,det/2.))
+    phase=math.acos(r)/3.
+    largest=q+2*p*math.cos(phase)
+    smallest=q+2*p*math.cos(phase+2*math.pi/3.)
+    middle=3*q-largest-smallest
+    return tuple(sorted((smallest,middle,largest)))
 
 
 @dataclass(frozen=True)

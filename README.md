@@ -76,10 +76,10 @@ To run the optional **real MuJoCo-vs-Bullet** CPU comparison (not a safety or cr
 ```powershell
 python -m pip install -e ".[mujoco]"
 python -m dsiq_native physics-backend-check --backend mujoco_cpu_direct_v1
-python -m dsiq_native physics-cross-backend-check --tolerance 0.12
+python -m dsiq_native physics-cross-backend-check --tolerance 0.01
 ```
 
-The 12 cm limit is an illustrative inter-solver screening threshold for the reference gantry, **not an OEM actuator tolerance**. Two different control laws currently drive the two genuine solvers; differences are reported rather than hidden.
+The **10 mm final-position** screening threshold is a software comparison gate for the self-authored reference gantry, **not an OEM actuator tolerance**. The latest source-bounded 240 Hz trace measured 0.255 mm final disagreement, 9.41 mm maximum sampled position disagreement, and both solvers within the source effort and speed envelopes for this case. The controllers remain non-OEM. Use `physics-motion-trace --steps 100 --sample-every 5 --tolerance .01 --require-match` to reproduce the measured acceptance. Different simulation/control laws can produce discrepancies on other machines.
 
 To validate a real authored OpenUSD stage before loading heavy payloads:
 

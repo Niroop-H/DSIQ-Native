@@ -338,6 +338,7 @@ def run_cross_backend_comparison(*, screening_tolerance_m: float = .12) -> dict:
         not math.isfinite(screening_tolerance_m) or
         not 0 < screening_tolerance_m <= .25):
         raise ValueError("Cross-solver screening tolerance must be in (0,0.25] meters")
+    from .bullet_runtime import PHYSICS_DT
     a=run_backend_conformance("bullet_cpu_direct_v1")
     b=run_backend_conformance("mujoco_cpu_direct_v1")
     if not a["passed"] or not b["passed"]:

@@ -448,6 +448,16 @@ def build_parser() -> argparse.ArgumentParser:
     gpuvec.add_argument("--device",default="cuda:0")
     gpuvec.add_argument("--memory-mib-cap",type=int,default=64)
     gpuvec.add_argument("--oracle-samples",type=int,default=8)
+    gpu_xyz=sub.add_parser(
+        "gpu-xyz-benchmark",
+        help="Actual CUDA Warp 3-axis batched gantry reduced-order compute; no CPU fallback"
+    )
+    gpu_xyz.add_argument("--envs",type=int,default=16384)
+    gpu_xyz.add_argument("--steps",type=int,default=240)
+    gpu_xyz.add_argument("--seed",type=int,default=1007)
+    gpu_xyz.add_argument("--device",default="cuda:0")
+    gpu_xyz.add_argument("--memory-mib-cap",type=int,default=64)
+    gpu_xyz.add_argument("--oracle-samples",type=int,default=8)
     vector=sub.add_parser(
         "robot-vector-benchmark",
         help="Measure CPU throughput of 1..8 isolated actual Bullet gantry learning environments"
@@ -531,6 +541,14 @@ def main(argv: list[str] | None = None) -> int:
         elif command == "gpu-vector-benchmark":
             from .gpu_vector_gantry import benchmark_warp_reduced_order
             result=benchmark_warp_reduced_order(
+                envs=args.envs,steps=args.steps,seed=args.seed,
+                device=args.device,memory_limit_mib=args.memory_mib_cap,
+                oracle_samples=args.oracle_samples,
+            )
+            code=0 if result["independent_oracle_passed"] else 3
+        elif command == "gpu-xyz-benchmark":
+            from .gpu_vector_xyz import benchmark_warp_xyz
+            result=benchmark_warp_xyz(
                 envs=args.envs,steps=args.steps,seed=args.seed,
                 device=args.device,memory_limit_mib=args.memory_mib_cap,
                 oracle_samples=args.oracle_samples,

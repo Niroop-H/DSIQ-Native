@@ -129,11 +129,15 @@ jobs:
         run: python -m unittest discover -s tests -p test_mujoco_backend.py -v
       - name: Test structural physics backend contract with both solvers present
         run: python -m unittest discover -s tests -p test_physics_backend.py -v
+      - name: Test actual two-solver step-by-step motor feedback
+        run: python -m unittest discover -s tests -p test_solver_motion_trace.py -v
       - name: Run actual MuJoCo source-verified conformance JSON
         run: |
           mkdir -p build/physics-comparison
           python -m dsiq_native physics-backend-check --backend mujoco_cpu_direct_v1 > build/physics-comparison/mujoco-conformance.json
           python -m dsiq_native physics-cross-backend-check --tolerance 0.12 > build/physics-comparison/actual-bullet-mujoco-comparison.json
+          python -m dsiq_native physics-motion-trace --steps 100 --sample-every 5 --tolerance .01 > build/physics-comparison/full-motor-position-velocity-trace.json
+          python -c 'import json; r=json.load(open("build/physics-comparison/full-motor-position-velocity-trace.json")); assert len(r["backend_measurements"])==2 and r["steps"]==100 and r["trajectory_comparison"]["position_rmse_m"]>=0'
           python -c 'import json; r=json.load(open("build/physics-comparison/actual-bullet-mujoco-comparison.json")); assert r["passed"] and len(r["individual_backend_conformance"])==2 and not r["same_oem_calibration_or_solver_equivalence_proven"]'
       - name: Archive independently inspectable two-solver residual evidence
         if: always()

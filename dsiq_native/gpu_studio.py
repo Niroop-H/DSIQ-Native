@@ -784,6 +784,8 @@ class GPUStudio:
         ordered=sorted(samples)
         median=statistics.median(ordered)
         p95=ordered[math.ceil(.95*len(ordered))-1]
+        p99=ordered[math.ceil(.99*len(ordered))-1]
+        slow_frames=sum(value>33.333 for value in ordered)
         after=detect_nvidia_gpus()
         memory_snapshots=[]
         for device in after:
@@ -825,6 +827,11 @@ class GPUStudio:
             "observed_fps":frames/elapsed if elapsed>0 else None,
             "interframe_p50_ms":median,
             "interframe_p95_ms":p95,
+            "interframe_p99_ms":p99,
+            "interframe_max_ms":ordered[-1],
+            "frames_with_interframe_gap_gt_33_33ms":slow_frames,
+            "observed_time_sample_count":len(ordered),
+            "timing_note":"Wall clock between rendered frames, including CPU scheduling; not GPU timestamp timing",
             "triangles_in_gpu_scene":self._triangles+self._static_source_triangles,
             "physics_backed_source_triangles":self._triangles,
             "visual_only_source_triangle_instances":self._static_source_triangles,

@@ -81,8 +81,16 @@ class CADMeshGeometryTests(unittest.TestCase):
             part=next(x for x in result["visual_parts"] if x.source=="source_panel.obj")
             self.assertEqual(part.triangle_count,1)
             self.assertEqual(len(part.vertices),3)
-            self.assertTrue(any(abs(v[0]-.5)<1e-6 for v in part.vertices))
-            self.assertTrue(any(abs(v[1]-.5)<1e-6 for v in part.vertices))
+            # A URDF visual origin is preserved, so verify its declared
+            # 0.5m mesh scale by relative vertex extents, not absolute XYZ.
+            self.assertAlmostEqual(
+                max(v[0] for v in part.vertices)-min(v[0] for v in part.vertices),
+                .5,places=6,
+            )
+            self.assertAlmostEqual(
+                max(v[1] for v in part.vertices)-min(v[1] for v in part.vertices),
+                .5,places=6,
+            )
             self.assertEqual(part.source_sha256,hashlib.sha256(source.read_bytes()).hexdigest())
             self.assertEqual(result["source_urdf_sha256"],
                 hashlib.sha256(Path(manifest.parent/"machine.urdf").read_bytes()).hexdigest())

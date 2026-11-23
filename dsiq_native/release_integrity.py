@@ -58,8 +58,8 @@ def _inspect_zip(file):
             if observed_size!=info.file_size:
                 raise ValueError("Decompressed member differs from ZIP directory")
             members[name]={"size":observed_size,"sha256":sha}
-    if not any(path.lower().endswith("dsiq-native.exe") for path in members):
-        raise ValueError("Release does not contain DSIQ-Native.exe")
+    if not any(path.lower().endswith(("dsiq-native.exe","dsiq-native-gpu.exe")) for path in members):
+        raise ValueError("Release does not contain DSIQ-Native.exe or DSIQ-Native-GPU.exe")
     return members,total
 
 

@@ -51,6 +51,40 @@ See [Multidomain milestone evidence](docs/MULTIDOMAIN_ENGINE_MILESTONE.md).
 
 **Not yet built/qualified:** standalone RTX rendering integration, validated PhysX articulation simulation on the RTX 3050, MJCF import, production-qualified ROS 2 bridges, industry-calibrated robot dynamics, RTX-accurate RGB/depth sensors, realistic sensor noise calibration, detailed approved OEM CAD libraries, and production Windows installers. Actual CPU Bullet RGB-D/LiDAR and verified local URDF inspection/import exist, but they are not RTX or physically calibrated replacements. These are explicit milestones, not hidden stubs labeled complete.
 
+## Native real-time OpenGL workcell editor and locked source CAD (experimental)
+
+DSIQ now has an optional **actual Panda3D/OpenGL rasterized editor** that
+loads source-verified URDF CAD (primitives or hash-locked local OBJ/STL/DAE
+meshes), draws real triangle geometry using GPU shader lights, updates
+link transforms from the Bullet solver, and supports hierarchy selection,
+base XYZ authoring, and Undo/Redo. An offscreen GL render benchmark records
+real frame timings and screenshots; CI validates it under virtual-display
+Mesa and NEVER claims RTX 3050 hardware approval from that test.
+
+    python -m pip install -e ".[gpu]"
+    python -m dsiq_native gpu-studio
+    python -m dsiq_native gpu-studio --manifest path/to/verified-manifest.json
+    python -m dsiq_native gpu-benchmark --frames 120 --width 1280 --height 720 --screenshot opengl.png > gpu-report.json
+    python -m dsiq_native cad-mesh-lock path/to/verified-manifest.json
+    python -m dsiq_native cad-usd-record path/to/verified-manifest.json source-motion.usda --frames 8
+
+The source CAD mesh hashes must be explicitly reviewed and locked inside
+the manifest before the GPU editor loads external meshes. The time-sampled
+USD CAD recording uses actual Bullet link poses and source mesh triangles.
+
+Research AI and qualification extensions:
+
+    python -m dsiq_native robot-vector-benchmark --envs 4 --steps 30
+    python -m dsiq_native physical-compare bullet.json instrument-observations.json --tolerance 0.005
+    python -m dsiq_native release-sbom installed-components.spdx.json
+
+Multiworld training is a bounded CPU Bullet reference (not Isaac Lab).
+Physical comparison requires actual external measurements; fake
+instrument qualification is rejected. Windows builds are unsigned and
+must pass a strict code-signing/evidence gate before commercial release.
+
+See [Native GPU/CAD implementation and qualification requirements](docs/NATIVE_GPU_CAD.md).
+
 ## Platform extension: robotics TF, data export, machine inspection, scene benchmarking, Windows packaging
 
 The following **new, measured/verified** workflows extend the existing

@@ -514,6 +514,8 @@ class GPUStudio:
         if type(frames) is not int or not 10<=frames<=600:
             raise ValueError("GPU benchmark must sample 10..600 rendered frames")
         import statistics
+        from .hardware import detect_nvidia_gpus
+        before=detect_nvidia_gpus()
         self._frame_ms.clear()
         self._last_perf=time.perf_counter()
         start=time.perf_counter()
@@ -536,6 +538,25 @@ class GPUStudio:
         ordered=sorted(samples)
         median=statistics.median(ordered)
         p95=ordered[math.ceil(.95*len(ordered))-1]
+        after=detect_nvidia_gpus()
+        memory_snapshots=[]
+        for device in after:
+            previous=next((x for x in before if x.name==device.name),None)
+            memory_snapshots.append({
+                "name":device.name,"driver":device.driver,
+                "vram_total_mib":device.vram_total_mib,
+                "vram_used_before_mib":(
+                    previous.vram_total_mib-previous.vram_free_mib
+                    if previous else None
+                ),
+                "vram_used_after_mib":device.vram_total_mib-device.vram_free_mib,
+                "global_gpu_vram_delta_mib":(
+                    (device.vram_total_mib-device.vram_free_mib)-
+                    (previous.vram_total_mib-previous.vram_free_mib)
+                    if previous else None
+                ),
+                "note":"Global nvidia-smi device usage, not process-isolated peak VRAM",
+            })
         budget=inspect_device().as_dict()
         gsg=self.base.win.getGsg()
         vendor=""
@@ -549,6 +570,11 @@ class GPUStudio:
             "display_backend":str(self.base.win.getPipe().getType().getName()),
             "reported_gl_vendor":vendor,
             "rendered_frames":frames,
+            "viewport_pixels":[self.base.win.getXSize(),self.base.win.getYSize()],
+            "device_global_vram_snapshots":memory_snapshots,
+            "source_asset_classes":sorted({
+                item["asset_class"] for item in self._sources.values()
+            }),
             "elapsed_wall_seconds":elapsed,
             "observed_fps":frames/elapsed if elapsed>0 else None,
             "interframe_p50_ms":median,

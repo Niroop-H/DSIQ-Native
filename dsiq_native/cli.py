@@ -370,6 +370,10 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("simulation_json")
     compare.add_argument("external_measurements_json")
     compare.add_argument("--tolerance",type=float,default=.005)
+    sbom=sub.add_parser(
+        "release-sbom",help="Generate SPDX 2.3 installed Python component inventory"
+    )
+    sbom.add_argument("output_json")
     return p
 
 
@@ -378,7 +382,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         command = args.command
         code = 0
-        if command == "robot-vector-benchmark":
+        if command == "release-sbom":
+            from .release_sbom import build_spdx_inventory
+            result=build_spdx_inventory(args.output_json)
+        elif command == "robot-vector-benchmark":
             from .vector_learning import benchmark_vector_learning
             result=benchmark_vector_learning(
                 num_envs=args.envs,steps=args.steps,seed=args.seed,

@@ -41,6 +41,20 @@ class ReleaseAttestationTests(unittest.TestCase):
                 ):
                     make_attestation(archive,root/f"out{idx}.json")
 
+    def test_unsigned_gpu_application_is_valid_for_integrity_only(self):
+        with TemporaryDirectory() as temp:
+            root=Path(temp)
+            archive=root/"gpu.zip"
+            with ZipFile(archive,"w",ZIP_DEFLATED) as z:
+                z.writestr("DSIQ-Native-GPU.exe",b"MZ"+b"\0"*40)
+                z.writestr("_internal/panda3d.dll",b"test-only-bytes")
+            attestation=root/"gpu.attestation.json"
+            output=make_attestation(archive,attestation)
+            self.assertTrue(output["archive_integrity_verified"])
+            checked=verify_attestation(archive,attestation)
+            self.assertTrue(checked["integrity_verified"])
+            self.assertFalse(checked["authenticode_verified"])
+
     def test_missing_executable_is_rejected(self):
         with TemporaryDirectory() as temp:
             root=Path(temp)

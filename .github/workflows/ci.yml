@@ -159,6 +159,7 @@ jobs:
           "$sha  DSIQ-Native-CPU-Preview-Windows.zip" | Out-File -FilePath "build\windows\SHA256SUMS.txt" -Encoding ascii
           python -m dsiq_native release-attest "build\windows\DSIQ-Native-CPU-Preview-Windows.zip" "build\windows\release.attestation.json"
           python -m dsiq_native release-verify "build\windows\DSIQ-Native-CPU-Preview-Windows.zip" "build\windows\release.attestation.json"
+          python -m dsiq_native release-sbom "build\windows\installed-components.spdx.json"
       - name: Upload independently smoke-tested executable preview
         uses: actions/upload-artifact@v4
         with:
@@ -183,11 +184,16 @@ jobs:
         run: |
           set -eo pipefail
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs ros-jazzy-rosgraph-msgs ros-jazzy-geometry-msgs
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-venv ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs ros-jazzy-rosgraph-msgs ros-jazzy-geometry-msgs
           # ROS 2 setup scripts may reference unset shell variables by design.
           source /opt/ros/jazzy/setup.bash
           set -u
           /usr/bin/python3 scripts/ros2_middleware_acceptance.py build/reference-scenes/ros2-preview-tf.json
+          # Run ACTUAL DSIQ ros2-stream executable with isolated Bullet client,
+          # not only synthetic message replay. Keep ROS distro packages visible.
+          /usr/bin/python3 -m venv --system-site-packages /tmp/dsiq-ros-env
+          /tmp/dsiq-ros-env/bin/python -m pip install -e ".[physics]"
+          /tmp/dsiq-ros-env/bin/python scripts/ros2_native_publisher_acceptance.py
 
   opengl-source-cad-studio:
     name: Real native OpenGL workcell GPU pipeline (Mesa CI software GL)
@@ -215,4 +221,53 @@ jobs:
         with:
           name: dsiq-native-opengl-software-ci
           path: build/gpu/
+          retention-days: 7
+
+  windows-native-gpu-preview:
+    name: Windows native OpenGL CAD studio executable (unsigned)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install real OpenGL, source CAD and Windows freezing dependencies
+        run: |
+          python -m pip install -e ".[gpu]"
+          python -m pip install "pyinstaller>=6.11,<7"
+      - name: Package the OpenGL editor into independent Windows executable
+        run: |
+          python -m PyInstaller --clean --noconfirm --onedir --console --name DSIQ-Native-GPU --collect-all panda3d --collect-all direct --collect-all trimesh --collect-all pxr --collect-all dsiq_native --hidden-import pybullet --hidden-import numpy --hidden-import direct.showbase.ShowBase --hidden-import direct.gui.DirectGui scripts/dsiq_native_entry.py
+      - name: Verify generated Windows executable start and engineering CLI
+        shell: pwsh
+        run: |
+          $exe = "dist\DSIQ-Native-GPU\DSIQ-Native-GPU.exe"
+          if (-not (Test-Path $exe)) { throw "Frozen native GPU Studio executable missing" }
+          $help = & $exe --help | Out-String
+          if ($LASTEXITCODE -ne 0 -or $help -notmatch "gpu-studio" -or $help -notmatch "cad-usd-record") { throw "GPU editor command registration failed" }
+          $source = & $exe machine-create build\gpu-fixture --name gpu_release_test | Out-String | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $source.machine_type -ne "mechanically_actuated_xyz_gantry") { throw "GPU executable reference machine builder failed" }
+          $mesh = & $exe cad-mesh-lock build\gpu-fixture\machine.manifest.json | Out-String | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $mesh.count -ne 0) { throw "GPU executable rights-check import failed" }
+      - name: Build archive with SHA256 and installed-component SBOM
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\windows-gpu | Out-Null
+          Compress-Archive -Path "dist\DSIQ-Native-GPU\*" -DestinationPath "build\windows-gpu\DSIQ-Native-GPU-Preview.zip" -Force
+          python -m dsiq_native release-attest "build\windows-gpu\DSIQ-Native-GPU-Preview.zip" "build\windows-gpu\release.attestation.json"
+          python -m dsiq_native release-verify "build\windows-gpu\DSIQ-Native-GPU-Preview.zip" "build\windows-gpu\release.attestation.json"
+          python -m dsiq_native release-sbom "build\windows-gpu\installed-components.spdx.json"
+          $hash = (Get-FileHash "build\windows-gpu\DSIQ-Native-GPU-Preview.zip" -Algorithm SHA256).Hash
+          "$hash  DSIQ-Native-GPU-Preview.zip" | Out-File "build\windows-gpu\SHA256SUMS.txt" -Encoding ascii
+      - name: Ensure unsigned GPU preview cannot pass production gate
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File scripts/windows_production_gate.ps1 -Executable "dist\DSIQ-Native-GPU\DSIQ-Native-GPU.exe" -ExpectedSignerThumbprint "" | Out-File build\windows-gpu\release-blockers.json
+          if ($LASTEXITCODE -eq 0) { throw "Unsigned GPU preview incorrectly qualified as production release" }
+          Write-Host "Unsigned preview correctly blocked from production"
+      - name: Upload portable Windows native GPU editor preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsiq-native-windows-opengl-unsigned
+          path: build/windows-gpu/
           retention-days: 7

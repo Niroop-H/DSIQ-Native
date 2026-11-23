@@ -19,11 +19,14 @@ def compare_measured_robot_motion(simulation_report: str|Path,
                                   physical_observations: str|Path,
                                   *, tolerance: float=.005,
                                   require_uncertainty: bool=False,
+                                  require_source_binding: bool=False,
                                   coverage_factor: float=2.0) -> dict:
     if type(tolerance) not in (int,float) or not math.isfinite(tolerance) or not 0<tolerance<=.1:
         raise ValueError("Measured trajectory tolerance must be finite in (0,.1]")
     if type(require_uncertainty) is not bool:
         raise ValueError("require_uncertainty must be a boolean")
+    if type(require_source_binding) is not bool:
+        raise ValueError("require_source_binding must be a boolean")
     if (type(coverage_factor) not in (int,float) or
             not math.isfinite(coverage_factor) or not 1. <= coverage_factor <= 5.):
         raise ValueError("Uncertainty coverage factor must be within [1,5]")
@@ -66,6 +69,28 @@ def compare_measured_robot_motion(simulation_report: str|Path,
                for v in states.values()):
             raise ValueError("Nonfinite or nonnumeric simulation joint feedback")
     source_joint_units=measured.get("joint_units")
+    actual_urdf_units=source.get("joint_units_from_loaded_urdf")
+    if actual_urdf_units is not None and (
+        not isinstance(actual_urdf_units,dict) or
+        set(actual_urdf_units)!=names or
+        any(v not in ("m","rad") for v in actual_urdf_units.values())
+    ):
+        raise ValueError("Simulator source URDF joint unit mapping is incomplete or invalid")
+    simulation_source_sha=source.get("source_urdf_sha256")
+    provided_source_sha=measured.get("source_urdf_sha256")
+    source_hash_matches=(
+        isinstance(simulation_source_sha,str) and
+        isinstance(provided_source_sha,str) and
+        len(simulation_source_sha)==64 and
+        all(x in "0123456789abcdef" for x in simulation_source_sha) and
+        simulation_source_sha==provided_source_sha
+    )
+    if provided_source_sha is not None and not source_hash_matches:
+        raise ValueError("Physical observation URDF SHA256 does not match simulated source")
+    if require_source_binding and (
+        not source_hash_matches or actual_urdf_units is None
+    ):
+        raise ValueError("Strict physical comparison requires a matching source URDF SHA256 and simulator joint unit map")
     if source_joint_units is not None and (
         not isinstance(source_joint_units,dict) or
         set(source_joint_units)!=names or
@@ -94,6 +119,8 @@ def compare_measured_robot_motion(simulation_report: str|Path,
         units=row.get("unit")
         if name not in names or units not in ("m","rad"):
             raise ValueError("External joint name or unit does not match declared simulator")
+        if actual_urdf_units is not None and units!=actual_urdf_units[name]:
+            raise ValueError("Observation joint unit disagrees with loaded source URDF")
         if source_joint_units is not None and units!=source_joint_units[name]:
             raise ValueError("Observation unit differs from declared external source unit contract")
         if name in encountered_units and units!=encountered_units[name]:
@@ -167,6 +194,9 @@ def compare_measured_robot_motion(simulation_report: str|Path,
         "uncertainty_required":require_uncertainty,
         "coverage_factor":float(coverage_factor),
         "external_joint_unit_contract_present":source_joint_units is not None,
+        "simulation_urdf_joint_units_present":actual_urdf_units is not None,
+        "simulation_source_sha256_matches_external_metadata":source_hash_matches,
+        "source_binding_required":require_source_binding,
         "all_simulated_joint_names_compared":True,
         "completed_simulation_monitor_passed_if_reported":
             source.get("runtime_monitor_passed") is True,

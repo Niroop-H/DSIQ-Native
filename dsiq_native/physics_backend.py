@@ -326,7 +326,7 @@ def run_backend_conformance(name: str = "bullet_cpu_direct_v1") -> dict:
         }
 
 
-def run_cross_backend_comparison(*, screening_tolerance_m: float = .12) -> dict:
+def run_cross_backend_comparison(*, screening_tolerance_m: float = .01) -> dict:
     """Compare actual Bullet and MuJoCo on one identical verified reference URDF.
 
     The engines use their explicitly different motor implementations. The

@@ -376,6 +376,10 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("simulation_json")
     compare.add_argument("external_measurements_json")
     compare.add_argument("--tolerance",type=float,default=.005)
+    compare.add_argument("--require-uncertainty",action="store_true",
+        help="Require every physical observation to specify standard uncertainty and enforce |error|+k*u <= tolerance")
+    compare.add_argument("--coverage-factor",type=float,default=2.0,
+        help="Conservative measurement-uncertainty multiplier; not a certified confidence interval")
     sbom=sub.add_parser(
         "release-sbom",help="Generate SPDX 2.3 installed Python component inventory"
     )
@@ -441,8 +445,13 @@ def main(argv: list[str] | None = None) -> int:
             result=compare_measured_robot_motion(
                 args.simulation_json,args.external_measurements_json,
                 tolerance=args.tolerance,
+                require_uncertainty=args.require_uncertainty,
+                coverage_factor=args.coverage_factor,
             )
-            code=0 if result["all_operator_tolerances_met"] else 3
+            code=0 if (
+                result["all_operator_tolerances_met"]
+                and (not args.require_uncertainty or result["all_conservative_uncertainty_bounds_met"])
+            ) else 3
         elif command == "gpu-studio":
             from .gpu_studio import GPUStudio
             if args.manifest and args.workcell:

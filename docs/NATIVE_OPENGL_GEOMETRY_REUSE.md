@@ -33,7 +33,7 @@ The integrated real Bullet workcell remains capped at **four imported robots**. 
 python -m dsiq_native gpu-visual-load-benchmark --copies 256 --frames 48 --width 1280 --height 720 --screenshot visual-load.png > gpu-visual-load.json
 ```
 
-The above is a suggested on-device test, not a published FPS result. The new command supports **1–512 extra static CAD copies**, additionally bounded to 500,000 scene triangles. Its initial software-OpenGL CI fixture uses **96 static visual copies** plus one real Bullet prototype: 97 visual assemblies, **one physics body**, no additional actuators. Every static reference keeps a frozen snapshot of verified source-geometry link transforms and identical render data; it has no independent physical dynamics or sensors.
+The above is a suggested on-device test, not a published FPS result. The new command supports **1–512 extra static CAD copies**, additionally bounded to 500,000 scene triangles. Its expanded Mesa software-OpenGL CI fixture uses **300 static visual copies** plus one real Bullet prototype: **301 visual assemblies, 111,972 source-authored triangle instances**, **one physics body**, no extra actuators. The CI gate requires an actual GL framebuffer screenshot, positive observed FPS, p50/p95/p99 wall-clock frame intervals and at least 100,000 rendered reference-triangle instances. These are low-complexity repeated gantry visuals, not a 100k-triangle unique industrial CAD assembly. Every static reference keeps a frozen snapshot of verified source-geometry link transforms and identical render data; it has no independent physical dynamics or sensors.
 
 The benchmark reports actual graphics-frame timings, authored scene triangle instances, unique draw-geometry buffers, and clear separate counts for reference copies and actual Bullet bodies. This is a **graphics resource stress test**, not a simulated industrial production line.
 
@@ -44,7 +44,7 @@ The benchmark reports actual graphics-frame timings, authored scene triangle ins
 - `reused_triangle_instances`: the difference between total draw instances and unique cached buffer content, **not** a count of triangles culled or removed.
 - `unique_geom_buffer_objects`: number of unique content hashes held in the current editor session.
 - `verified_source_visual_nodes`: count of independent rendered CAD visual parts, whether or not a buffer is shared.
-- `observed_fps`, `interframe_p50_ms`, `interframe_p95_ms`: measured times of **this renderer/session**, not a fabricated RTX card specification.
+- `observed_fps`, `interframe_p50_ms`, `interframe_p95_ms`, `interframe_p99_ms`: actual measured frame loop intervals in **this renderer/session**, not GPU hardware timestamp queries or a fabricated RTX card specification. A short benchmark is not a long-run stability or 4GB VRAM qualification.
 
 **Not yet measured:** process-specific GPU VRAM saved, GPU vertex residency, draw calls reduced, multi-GPU performance, real high-density factory CAD rendering or RTX3050 4GiB physical hardware performance. Panda3D may make driver-level copies that are not reported by this application. Buffer sharing alone does **not** implement scene batching or frustum/occlusion culling.
 

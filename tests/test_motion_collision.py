@@ -109,5 +109,73 @@ class SampledCollisionTests(unittest.TestCase):
                 screen_imported_path(self.world,self.plan,clearance_m=value)
 
 
+    def test_reject_modified_joint_indices_and_source_speed_limits(self):
+        from dataclasses import replace
+        from dsiq_native.motion_collision import screen_imported_path
+        altered_index=replace(
+            self.plan,
+            joint_indices=(999,) + self.plan.joint_indices[1:],
+        )
+        with self.assertRaisesRegex(ValueError,"joint indices"):
+            screen_imported_path(self.world,altered_index)
+        altered_speed=replace(
+            self.plan,
+            declared_speed_limits=(999.,) + self.plan.declared_speed_limits[1:],
+        )
+        with self.assertRaisesRegex(ValueError,"velocity ratings"):
+            screen_imported_path(self.world,altered_speed)
+
+    def test_reject_stale_bullet_start_pose_without_resetting_it(self):
+        from dsiq_native.motion_collision import screen_imported_path
+        info=self.world.imported_robots[self.asset]
+        index=self.plan.joint_indices[0]
+        p=self.world.p
+        cid=self.world.client
+        changed=self.plan.start[0]+.01
+        p.resetJointState(info["body_id"],index,changed,physicsClientId=cid)
+        with self.assertRaisesRegex(ValueError,"state changed"):
+            screen_imported_path(self.world,self.plan)
+        self.assertAlmostEqual(p.getJointState(
+            info["body_id"],index,physicsClientId=cid
+        )[0],changed)
+
+    def test_tampered_endpoint_nan_and_outside_urdf_limits_are_rejected(self):
+        from dataclasses import replace
+        from dsiq_native.motion_collision import screen_imported_path
+        q=list(self.plan.samples)
+        q[-1]=tuple(x+.01 for x in q[-1])
+        with self.assertRaisesRegex(ValueError,"endpoint"):
+            screen_imported_path(self.world,replace(self.plan,samples=tuple(q)))
+        q=list(self.plan.samples)
+        q[1]=(math.nan,)+q[1][1:]
+        with self.assertRaisesRegex(ValueError,"nonfinite"):
+            screen_imported_path(self.world,replace(self.plan,samples=tuple(q)))
+        q=list(self.plan.samples)
+        q[1]=(100.,)+q[1][1:]
+        with self.assertRaisesRegex(ValueError,"absolute joint bound"):
+            screen_imported_path(self.world,replace(self.plan,samples=tuple(q)))
+
+    def test_invalid_clock_values_block_screening(self):
+        from dataclasses import replace
+        from dsiq_native.motion_collision import screen_imported_path
+        for field,value in (("duration_s",math.nan),("timestep_s",math.inf),
+                            ("duration_s",0.),("timestep_s",-1.)):
+            with self.subTest(field=field,value=value),self.assertRaises(ValueError):
+                screen_imported_path(self.world,replace(self.plan,**{field:value}))
+
+    def test_coarse_path_uses_full_elapsed_duration_and_disclaims_ccd(self):
+        from dataclasses import replace
+        from dsiq_native.motion_collision import screen_imported_path
+        coarse=replace(self.plan,samples=(self.plan.samples[0],self.plan.samples[-1]))
+        report=screen_imported_path(self.world,coarse)
+        self.assertTrue(report["path_preflight_identity_and_limits_passed"])
+        self.assertTrue(report["start_state_verified_against_live_bullet"])
+        self.assertAlmostEqual(report["screened_path_duration_s"],self.plan.duration_s)
+        self.assertEqual(report["time_mapping"],
+                         "UNIFORM_PATH_PROGRESS_NOT_CONTINUOUS_SERVO_TRAJECTORY")
+        self.assertFalse(report["inter_sample_collision_guaranteed"])
+
+
+
 if __name__=="__main__":
     unittest.main()

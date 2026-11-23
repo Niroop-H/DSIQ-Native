@@ -48,8 +48,10 @@ def compare_motion_traces(*, joint: str="actuator_x", target: float=.2,
                 axis=next(x for x in before["joints"] if x["name"]==joint)
                 if axis["unit"]!="m":
                     raise AssertionError("Only SI-linear fixture joints comparable")
-                if not 0<=target<=1:
-                    raise ValueError("Fixture reference linear target must be 0..1m")
+                lower=float(axis["source_lower"])
+                upper=float(axis["source_upper"])
+                if not lower<=target<=upper:
+                    raise ValueError("Fixture target exceeds verified source URDF joint bounds")
                 engine.command_joint(asset,joint,target)
                 sample=[]
                 max_speed=0.
@@ -68,7 +70,7 @@ def compare_motion_traces(*, joint: str="actuator_x", target: float=.2,
                     max_speed=max(max_speed,abs(velocity))
                     max_effort=max(max_effort,abs(effort))
                     max_overshoot=max(max_overshoot,max(0.,position-target))
-                    if position<-.001 or position>1.201:
+                    if position<lower-.001 or position>upper+.001:
                         out_of_travel=True
                     if (step+1)%every==0 or step+1==steps:
                         sample.append({"step":step+1,
@@ -82,6 +84,8 @@ def compare_motion_traces(*, joint: str="actuator_x", target: float=.2,
                     "final_position_m":position,
                     "final_velocity_m_s":velocity,
                     "peak_observed_speed_m_s":max_speed,
+                    "source_lower_m":lower,
+                    "source_upper_m":upper,
                     "source_max_speed_m_s":axis["source_max_velocity"],
                     "speed_source_envelope_satisfied":
                         max_speed<=axis["source_max_velocity"]+1e-3,

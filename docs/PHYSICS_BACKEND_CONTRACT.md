@@ -27,12 +27,12 @@ These commands run actual Bullet simulation and return a machine-readable JSON r
 ```powershell
 python -m pip install -e ".[mujoco]"
 python -m dsiq_native physics-backend-check --backend mujoco_cpu_direct_v1
-python -m dsiq_native physics-cross-backend-check --tolerance 0.12
+python -m dsiq_native physics-cross-backend-check --tolerance 0.01
 ```
 
 The MuJoCo adapter compiles the same source-verified URDF with the native MuJoCo loader, reads independent `MjData` positions, velocities and contacts, and applies a documented effort-limited PD reference drive. The Bullet adapter continues to run independent `pybullet` simulation. The automated comparison reports the absolute measured X-axis residual after 100 steps and reproducibility across two isolated worlds per solver.
 
-**Important:** The two actuators use different reference control laws; success within an *illustrative 12 cm screening limit* does not establish numerical solver equivalence, matched closed-loop tuning, or OEM machine validation. The MuJoCo adapter currently supports one fixed-base URDF per world. USD Physics import, PhysX, Newton and GPU batching remain unsupported.
+**Important:** The reference controllers are not OEM calibrated; success within the **10 mm final-position and sampled peak-position** software screening gates does not establish numerical solver equivalence, comprehensive closed-loop stability, or OEM machine validation. A separate actual 100-step, 240 Hz trace checks peak speed, effort and exact URDF travel envelope. Measured: 0.255 mm final and 9.41 mm peak position differences on the current reference gantry. Full trace evidence is archived by CI. The MuJoCo adapter currently supports one fixed-base URDF per world. USD Physics import, PhysX, Newton and GPU batching remain unsupported.
 
 ## First adapter's source boundary
 

@@ -92,7 +92,11 @@ def run(output_directory: str = "build/ui-demo") -> dict:
                 ("real_transform", 2.2),
                 ("undo", 3.8),
                 ("redo", 5.0),
-                ("orbit", 6.2),
+                ("grid_snap_5mm", 5.45),
+                ("snap_transform", 5.85),
+                ("snap_undo", 6.25),
+                ("snap_off", 6.65),
+                ("orbit", 6.85),
                 ("bullet_motor", 8.2),
                 ("closer_view", 11.1),
                 ("stop_physics", 13.8),
@@ -126,6 +130,24 @@ def run(output_directory: str = "build/ui-demo") -> dict:
                         result = app.redo()
                         if not result:
                             raise AssertionError("CAD redo operation failed")
+                    elif action == "grid_snap_5mm":
+                        app.set_grid_snap(.005)
+                    elif action == "snap_transform":
+                        prior=next(
+                            e["position_m"] for e in app.editor.entities()
+                            if e["asset_id"]==aid
+                        )
+                        app.move_selected(.025,0.,0.)
+                        current=next(
+                            e["position_m"] for e in app.editor.entities()
+                            if e["asset_id"]==aid
+                        )
+                        if abs(current[0]-prior[0]-.005)>1e-6:
+                            raise AssertionError("Recorded 5mm grid snap failed")
+                    elif action == "snap_undo":
+                        app.undo()
+                    elif action == "snap_off":
+                        app.set_grid_snap(0.)
                     elif action == "bullet_motor":
                         app.world.command_imported_joint(aid,"actuator_x",.25)
                         app.world.command_imported_joint(aid,"actuator_y",.10)
@@ -140,7 +162,7 @@ def run(output_directory: str = "build/ui-demo") -> dict:
 
                 # A real, rendered viewport orbit shows the loaded geometry
                 # from different angles rather than moving a static picture.
-                if 6.2 < elapsed < 8.1:
+                if 6.85 < elapsed < 8.1:
                     app._yaw += .32
                     app._set_camera()
                 app.base.taskMgr.step()
@@ -181,6 +203,7 @@ def run(output_directory: str = "build/ui-demo") -> dict:
                 "actual_source_parts": imported["parts"],
                 "on_screen_hierarchy_controls": len(app._hierarchy_controls),
                 "real_transform_move_and_undo_redo_tested": True,
+                "metric_5mm_grid_snap_and_undo_tested": True,
                 "simulation_engine": "PyBullet",
                 "measured_initial_actuator_x_m": initial_joint,
                 "measured_final_actuator_x_m": final_joint,

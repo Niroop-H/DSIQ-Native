@@ -27,7 +27,7 @@
 - Sampled peak inter-solver position residual: **0.009412845 m (9.413 mm)**.
 - Sampled position RMSE: **0.005455600 m (5.456 mm)**.
 - Source speed, effort and travel envelopes: **PASS** on both solvers in this test.
-- More than 100 million CPU instructions may execute internally, but this evidence covers only the *explicit measured 100 steps*, not any invented performance claims.
+- This evidence covers only the measured 100 steps; it does not provide a CPU instruction count, throughput benchmark, or performance claim.
 - On the separate **uncontrolled freefall** 72-step fixture, both engines agreed in z and vz to the printed numerical precision. Both differed from continuous-time analytic z by about **6.131 mm** because of integration.
 
 ## Controller change and why it matters

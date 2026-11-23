@@ -39,7 +39,7 @@ class XYZWarpSourceContract(unittest.TestCase):
         ):
             with self.subTest(kwargs=kwargs):
                 with self.assertRaises(ValueError):
-                    benchmark_warp_xyz(envs=8,steps=4,device="cpu",**kwargs)
+                    benchmark_warp_xyz(**{**{"envs":8,"steps":4,"device":"cpu"},**kwargs})
 
 
 @unittest.skipUnless(

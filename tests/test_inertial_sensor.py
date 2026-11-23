@@ -29,6 +29,23 @@ class BulletInertialProbeTests(unittest.TestCase):
             self.assertEqual(len(second["specific_force_com_m_s2"]),3)
             self.assertFalse(second["sensor_calibrated"])
             self.assertFalse(second["sensor_noise_added"])
+            # An independent Euclidean-norm oracle verifies that the
+            # world->COM quaternion rotation preserves vector magnitude.
+            world_specific=[
+                second["linear_acceleration_world_m_s2"][i]-
+                second["world_gravity_m_s2"][i]
+                for i in range(3)
+            ]
+            self.assertAlmostEqual(
+                math.dist(world_specific,(0,0,0)),
+                math.dist(second["specific_force_com_m_s2"],(0,0,0)),
+                delta=1e-6,
+            )
+            self.assertAlmostEqual(
+                math.dist(second["angular_velocity_world_rad_s"],(0,0,0)),
+                math.dist(second["angular_velocity_com_rad_s"],(0,0,0)),
+                delta=1e-6,
+            )
             for vec in ("angular_velocity_com_rad_s",
                         "specific_force_com_m_s2",
                         "linear_acceleration_world_m_s2"):

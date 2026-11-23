@@ -16,10 +16,10 @@ USD=importlib.util.find_spec("pxr") is not None
 
 
 def invoke(*arguments):
-    out=StringIO()
-    with contextlib.redirect_stdout(out):
+    out,err=StringIO(),StringIO()
+    with contextlib.redirect_stdout(out),contextlib.redirect_stderr(err):
         status=main(list(map(str,arguments)))
-    return status,json.loads(out.getvalue())
+    return status,json.loads(out.getvalue() or err.getvalue())
 
 
 @unittest.skipUnless(BULLET,"Bullet optional runtime required")

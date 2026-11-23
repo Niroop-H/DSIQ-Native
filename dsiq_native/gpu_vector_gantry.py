@@ -207,6 +207,10 @@ def benchmark_warp_reduced_order(*, envs: int=4096, steps: int=240,
     if device=="cpu" and cuda:
         raise RuntimeError("Requested Warp CPU oracle path is unexpectedly CUDA")
 
+    from .gpu_device_budget import check_cuda_memory_admission
+    cuda_admission=check_cuda_memory_admission(
+        selected,estimated_arrays_bytes=envs*7*4,reserve_mib=256,
+    )
     source=load_verified_reference_axis()
     from .bullet_runtime import PHYSICS_DT
     import numpy as np
@@ -297,6 +301,7 @@ def benchmark_warp_reduced_order(*, envs: int=4096, steps: int=240,
         "fixed_timestep_s":PHYSICS_DT,
         "seed":seed,
         "estimated_min_device_array_bytes":envs*7*4,
+        "cuda_memory_admission":cuda_admission,
         "explicit_device_array_budget_mib":memory_limit_mib,
         "allocation_and_first_compile_wall_seconds":allocation_compile_wall_s,
         "synchronized_kernel_wall_seconds":kernel_wall_seconds,

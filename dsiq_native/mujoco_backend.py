@@ -5,7 +5,7 @@ synthetic state values are used in the simulation. URI, licence, joint and
 source-byte checks are performed by the pre-existing URDF manifest gate.
 
 Scope: one fixed-base licensed URDF per isolated world. An effort-limited
-PD reference controller is applied to qfrc_applied in simulation space.
+cascaded source-speed-bounded, effort-limited reference controller is applied to qfrc_applied in simulation space.
 It is not an industrial drive, OEM calibration or safety-rated mechanism.
 """
 from __future__ import annotations
@@ -171,9 +171,23 @@ class MuJoCoPhysicsBackend:
                 q=float(self.data.qpos[j["qpos_address"]])
                 v=float(self.data.qvel[dof])
                 target=self.targets[j["name"]]
-                # Simulated effort-limited PD; never claim an OEM drive law.
-                effort=max(-j["max_effort"],min(j["max_effort"],
-                           600.*(target-q)-48.*v))
+                # Real generalized-force command. Use a two-loop reference
+                # servo: signed position error -> source-speed-bounded velocity
+                # target -> effort-saturated velocity feedback.
+                # Kp has units s^-1; Kv is N*s/m (prismatic) or N*m*s/rad.
+                # NOT an OEM-tuned plant/controller or a safety-rated drive.
+                position_error=target-q
+                desired_speed=max(
+                    -j["max_velocity"],
+                    min(j["max_velocity"],12.0*position_error),
+                )
+                velocity_gain=450.0 if j["kind"]=="prismatic" else 50.0
+                effort=max(
+                    -j["max_effort"],
+                    min(j["max_effort"],velocity_gain*(desired_speed-v)),
+                )
+                if not math.isfinite(effort):
+                    raise ArithmeticError("Nonfinite simulated MuJoCo drive effort")
                 self.data.qfrc_applied[dof]=effort
             self.mj.mj_step(self.model,self.data)
             self.step_index+=1

@@ -59,6 +59,13 @@ class MuJoCoBackendAcceptance(unittest.TestCase):
         self.assertEqual(len(report["individual_backend_conformance"]),2)
         self.assertTrue(all(v["passed"] for v in report["individual_backend_conformance"]))
         self.assertTrue(report["passed"],report)
+        oracle=report["analytic_unconstrained_freefall_comparison"]
+        self.assertTrue(oracle["passed"],oracle)
+        self.assertLessEqual(oracle["bullet_mujoco_position_residual_m"],.001)
+        self.assertLessEqual(oracle["bullet_mujoco_velocity_residual_m_s"],.01)
+        self.assertFalse(oracle["oem_or_robot_safety_qualified"])
+        self.assertIn("controller_response_agrees_within_10mm",report)
+
         self.assertFalse(report["same_oem_calibration_or_solver_equivalence_proven"])
         self.assertFalse(report["hardware_safety_qualified"])
 

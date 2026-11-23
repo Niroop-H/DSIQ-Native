@@ -331,6 +331,7 @@ class BulletPlayground:
                 })
             result = {
                 "asset_id": asset_id,
+                "source_urdf_sha256": manifest["geometry"]["sha256"],
                 "body_id": body_id,
                 "robot_name": inspection.robot_name,
                 "asset_class": manifest["asset_class"],

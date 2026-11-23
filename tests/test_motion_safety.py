@@ -61,6 +61,31 @@ class AnalyticImportedMotionTests(unittest.TestCase):
         )
         self.assertTrue(result["source_urdf_sha256_bound_and_verified"])
 
+    def test_engineering_joint_units_must_match_loaded_urdf(self):
+        expected={"linear_actuator":"prismatic"}
+        self.source["source_urdf_sha256"]="a"*64
+        good=audit_joint_motion(
+            self.plan,self.source,
+            expected_source_sha256="a"*64,
+            expected_joint_types=expected,
+        )
+        self.assertTrue(good["reviewed_joint_types_cross_checked_with_loaded_urdf"])
+        self.assertEqual(good["per_joint"]["linear_actuator"]["unit"],"m")
+        self.source["joints"]["linear_actuator"]["joint_type"]="revolute"
+        with self.assertRaisesRegex(ValueError,"disagrees with loaded URDF"):
+            audit_joint_motion(
+                self.plan,self.source,
+                expected_source_sha256="a"*64,
+                expected_joint_types=expected,
+            )
+        self.source["joints"]["linear_actuator"]["joint_type"]="unknown"
+        with self.assertRaisesRegex(ValueError,"joint_type"):
+            audit_joint_motion(self.plan,self.source)
+
+    def test_partial_verified_joint_type_map_is_rejected(self):
+        with self.assertRaisesRegex(ValueError,"joint-type map"):
+            audit_joint_motion(self.plan,self.source,expected_joint_types={})
+
     def test_missing_axis_or_bogus_urdf_speed_rejected(self):
         self.source["joints"]={}
         with self.assertRaisesRegex(ValueError,"every imported actuator"):

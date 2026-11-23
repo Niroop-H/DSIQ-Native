@@ -53,8 +53,8 @@ Kit extension is an interoperability adapter, not the main runtime.
 | Source geometry | Rights/hash-gated URDF, USD, source meshes; real CAD OpenGL draw path | OEM-scale CAD translators, licensed machinery data, calibrated fidelity |
 | OpenUSD | Metric Z-up stages, references, layers, variants, measured telemetry; read-only reuse profile | Payload streaming, general-purpose asset rule plugins, Hydra rendering |
 | Robotics | Bullet CPU physics, imported URDF actuators, bounded quintic motion, discrete collision checks, solver telemetry | Independent safety, CCD, OEM drive calibration, industrial control |
-| Physics backends | Source-verified Bullet world adapter, conformance contract and repeatability evidence | MuJoCo, Newton, PhysX backends, cross-solver comparisons, GPU batches |
-| Editor | Native real OpenGL/Panda3D window, selection, hierarchy, move, undo/redo | Scalable PBR renderer, mechanical mates/gizmos, 3050 hardware qualification |
+| Physics backends | Source-verified real Bullet and optional real MuJoCo CPU adapters; isolated-world conformance and measured source-matched comparison | Newton, PhysX, full USD Physics import, physical calibration, GPU batches |
+| Editor | Native OpenGL/Panda3D window, hierarchy, move, undo/redo, 1/5/25 mm edit-grid snapping | Scalable PBR, mechanical mates/gizmos, RTX3050 hardware qualification |
 | Sensors/data | Bullet RGB-D/LiDAR reference and ROS 2 read-only transport | Calibrated optics, sensor uncertainty, safely commissioned controllers |
 | Supply chain | Secure dependency audit, offline signed-update verification, SBOM, CI preview binaries | Independent licence review, publisher signing, validated installers |
 | Industrial acceptance | Evidence inventory and qualification checklists | External machine calibration, risk assessment, customer pilot |
@@ -64,6 +64,30 @@ Kit extension is an interoperability adapter, not the main runtime.
 on the target **16 GiB RAM / RTX 3050 (4 GiB VRAM)** budget. Proprietary
 asset ownership and external commissioning cannot be generated from code.
 The prior 42/100 figure is only a provisional assessment, not a new score.
+
+## Parallel full-feature engineering program
+
+**Program target:** comprehensive Omniverse-class capability coverage, not a limited-feature niche. Parallel workstreams cover OpenUSD, renderer, physics, robotics, Physical AI, calibrated sensors, synthetic data, CAD, materials, UI, plugins, collaboration, streaming, operational digital twins, automation, optimisation and enterprise distribution. The current platform is not yet at feature parity.
+
+[View the 20-track master implementation and acceptance matrix](docs/OMNIVERSE_FULL_PARITY_MASTER_MATRIX.md).
+
+To run the optional **real MuJoCo-vs-Bullet** CPU comparison (not a safety or cross-solver equivalence certificate):
+
+```powershell
+python -m pip install -e ".[mujoco]"
+python -m dsiq_native physics-backend-check --backend mujoco_cpu_direct_v1
+python -m dsiq_native physics-cross-backend-check --tolerance 0.12
+```
+
+The 12 cm limit is an illustrative inter-solver screening threshold for the reference gantry, **not an OEM actuator tolerance**. Two different control laws currently drive the two genuine solvers; differences are reported rather than hidden.
+
+To validate a real authored OpenUSD stage before loading heavy payloads:
+
+```powershell
+python -m dsiq_native usd-validate build/first-scene.usda
+```
+
+Validation is bounded, read-only and checks default-time composed geometry; deferred payload contents, external rights and independent physical fidelity require further checks.
 
 ## Developer checks
 

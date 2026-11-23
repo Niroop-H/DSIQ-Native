@@ -16,6 +16,26 @@
 | 16GiB RAM / RTX3050 | Selective graceful operation with constrained scene | Advisory GPU budget; standalone CPU software-rendered studio, headless Windows/Linux CI; RTX3050 GUI untested | Actual workstation RAM traces, GUI/fps/accuracy acceptance |
 | Shipping | Signed, supported Windows installer | Not implemented | Clean-room install, license/redistribution review |
 
+## Additional platform gaps being closed
+
+- **ROS 2:** actual Bullet parent-relative reference-link transform
+  capture and optional read-only /dsiq/tf publisher; live ROS 2 DDS
+  integration remains unverified.
+- **Sensors / physical AI data:** source-verified Bullet depth and
+  segmentation datasets now convert into bbox-only COCO-style annotations
+  derived from actual rendered pixels, with deterministic disjoint splits.
+  No training engine or calibrated optics yet.
+- **Machine development:** generic rights-checked URDF inventory now
+  lists declared link masses, inertial tensors, visual/collision components,
+  actuator speed/effort and role identification. This is not OEM acceptance.
+- **Environments / graphics:** real software-renderer frame performance
+  reporting across all three reference presets; an RTX/PBR GPU viewport
+  remains absent.
+- **Commercial:** CI includes an unsigned Windows standalone CPU
+  robotics executable build with actual runnable simulation checks,
+  subject to passing Windows packaging CI. Signed/MSIX installers,
+  updates, GPU test certification and customer pilots remain missing.
+
 ## Core-engine new acceptance coverage
 
 - Physics solver: measured numerical mechanical energy drift across

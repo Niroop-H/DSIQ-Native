@@ -274,6 +274,26 @@ def build_parser() -> argparse.ArgumentParser:
         "core-readiness",
         help="Execute all three reference core acceptance suites; report industrial blockers"
     )
+    coco=sub.add_parser(
+        "dataset-coco",
+        help="Export integrity-verified actual Bullet segmentation pixels as COCO detection labels"
+    )
+    coco.add_argument("dataset_directory")
+    coco.add_argument("output_json")
+    coco.add_argument("--validation-fraction",type=float,default=.25)
+    coco.add_argument("--seed",type=int,default=1007)
+    rend=sub.add_parser(
+        "render-benchmark",
+        help="Measure real CPU TinyRenderer frame and physics timing across 3D presets"
+    )
+    rend.add_argument("--frames",type=int,default=3)
+    rend.add_argument("--width",type=int,default=160)
+    rend.add_argument("--height",type=int,default=120)
+    inventory=sub.add_parser(
+        "machine-inventory",
+        help="Inspect actual licensed URDF link masses, geometric parts and actuator declarations"
+    )
+    inventory.add_argument("manifest")
     return p
 
 
@@ -282,7 +302,21 @@ def main(argv: list[str] | None = None) -> int:
     try:
         command = args.command
         code = 0
-        if command == "core-readiness":
+        if command == "machine-inventory":
+            from .machine_inventory import machine_inventory
+            result=machine_inventory(args.manifest)
+        elif command == "dataset-coco":
+            from .dataset_coco import export_coco
+            result=export_coco(
+                args.dataset_directory,args.output_json,
+                validation_fraction=args.validation_fraction,seed=args.seed,
+            )
+        elif command == "render-benchmark":
+            from .render_benchmark import benchmark_render_presets
+            result=benchmark_render_presets(
+                frames=args.frames,width=args.width,height=args.height,
+            )
+        elif command == "core-readiness":
             from .core_readiness import inspect_core_readiness
             result=inspect_core_readiness()
             code=0 if result["all_defined_software_gates_passed"] else 3

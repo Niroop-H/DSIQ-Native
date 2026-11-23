@@ -19,6 +19,9 @@ compatible with ROS 2 standard messages:
   intersections, range convention and simulated scan period;
 - rosgraph_msgs/msg/Clock: the actual simulation tick converted to
   seconds/nanoseconds.
+- tf2_msgs/msg/TFMessage: actual Bullet link frame transforms expressed
+  relative to the current reference base (plus a world-frame LiDAR fixture).
+  The preview contains 8 distinct child frames and synchronized stamps.
 
 JSON cannot contain nonfinite floating values, so the preview records
 no-return LiDAR readings as null. The live ROS publisher converts those
@@ -38,12 +41,14 @@ python -m dsiq_native ros2-stream --frames 200 --steps-per-frame 12 --lidar-rays
 ros2 topic echo /dsiq/joint_states
 ros2 topic echo /dsiq/scan
 ros2 topic echo /dsiq/clock
+ros2 topic echo /dsiq/tf
 ~~~
 
 Topics:
 - /dsiq/joint_states
 - /dsiq/scan
 - /dsiq/clock
+- /dsiq/tf (reference-base, 6 robot links, LiDAR fixture)
 
 The node publishes at a *best-effort wall-time pace* matching simulated
 steps, using an independent Bullet client in the current process. This
@@ -55,10 +60,12 @@ bounded: max 1,200 frames, 24 solver steps/frame and 360 LiDAR rays.
 - There is **no subscriber**, trajectory execution service, action
   server, controller manager, ros2_control interface or real machine
   command bridge.
-- No TF tree is published. Joint names and frame IDs are explicitly
-  identified as DSIQ reference frames; visualization in RViz requires
-  the corresponding validated URDF/frame publisher to be integrated
-  separately. The read-only simulation uses no OEM robot calibration.
+- A real measured reference TF tree is now constructed in the preview
+  and optionally published as /dsiq/tf. Transform positions and quaternions
+  come from Bullet world-link frames converted to parent-relative frames,
+  not guessed frame offsets. Complete RViz interoperability and source
+  URDF frame matching still require a ROS 2 integration test. No OEM
+  robot calibration is implied.
 - The scan origin and orientation are a DSIQ reference fixture. A 2D
   geometric raycaster is not a calibrated LiDAR or an RTX sensor.
 - Simulation time in /dsiq/clock is not a global ROS /clock topic; this
@@ -75,7 +82,7 @@ bounded: max 1,200 frames, 24 solver steps/frame and 360 LiDAR rays.
   authorization, rate limits, emergency stops, commissioning evidence
   and a clear operator-controlled separation from simulation.
 
-The next robotics integration milestone is validated TF/URDF publishing
-and a test matrix across supported ROS 2 versions, followed by
+The next robotics integration milestone is qualified TF/URDF matching,
+DDS middleware live publishing and a test matrix across ROS 2 versions, followed by
 explicit opt-in software-only robot planning interfaces. No ROS 2
 feature is represented as an industry-qualified hardware controller.

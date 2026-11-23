@@ -24,6 +24,31 @@ Each sample varies physical properties (body masses, friction,
 restitution, size, object positions), robot motor targets and camera
 extrinsics. Values come from a seeded local PRNG; the seed is recorded.
 
+## Real segmentation-to-COCO detection export
+
+Capture several independent physics scenarios, then derive detection
+boxes from the **actual per-pixel Bullet segmentation arrays**:
+
+~~~powershell
+python -m dsiq_native dataset-generate train-scenes --frames 8 --seed 1007
+python -m dsiq_native dataset-verify train-scenes
+python -m dsiq_native dataset-coco train-scenes train-scenes/coco.json --validation-fraction 0.25 --seed 1007
+~~~
+
+The output is one JSON bundle with distinct train/val COCO-style image,
+category and detection annotation arrays. Every bbox is computed from
+real measured image pixel IDs. Occluded objects are not assigned
+guessed boxes. The converter verifies all source image and NPZ SHA-256
+checksums first and rejects modifications. Segmentation polygons are
+**not** supplied; this is a bbox-only research dataset export.
+
+The source file paths refer to original image files, so consuming
+trainers must resolve these against the source dataset folder. It is
+not a COCO export of licensed industrial CAD or a real-camera
+calibrated dataset. Validation split prevents identical frame IDs
+appearing in both sets; it does not prevent domain shift or guarantee
+statistical independence of reference scenarios.
+
 ## Resource bounds
 
 Maximum of 64 frames, 12 payloads per frame and 76,800 image pixels.

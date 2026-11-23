@@ -59,6 +59,48 @@ class ActualBulletRosContractTests(unittest.TestCase):
                 self.assertTrue(math.isfinite(value))
                 self.assertLessEqual(value,4.)
 
+    def test_actual_bullet_tf_tree_has_correct_parent_relative_link_poses(self):
+        from dsiq_native.bullet_runtime import BulletPlayground,BulletSettings
+        from dsiq_native.ros2_tf import capture_reference_tf
+        with BulletPlayground(BulletSettings(payload_count=0)) as world:
+            world.command_joints((.3,-.2,.1,.05,-.03,.06))
+            world.step(24)
+            report=capture_reference_tf(world)
+            self.assertEqual(report["transform_count"],8)
+            self.assertFalse(report["calibrated"])
+            frames=report["transforms"]
+            self.assertEqual(frames[0]["child_frame_id"],"dsiq_reference_base")
+            self.assertEqual(frames[-1]["child_frame_id"],"dsiq_lidar_reference")
+            self.assertEqual(len(set(t["child_frame_id"] for t in frames)),8)
+            stamp=frames[0]["header"]["stamp"]
+            self.assertEqual(stamp,{"sec":0,"nanosec":100000000})
+            p=world.p;cid=world.client
+            base_pos,base_q=p.getBasePositionAndOrientation(
+                world.robot,physicsClientId=cid
+            )
+            for i in range(6):
+                frame=frames[i+1]
+                self.assertEqual(frame["header"]["frame_id"],"dsiq_reference_base")
+                self.assertEqual(frame["child_frame_id"],f"dsiq_reference_link_{i}")
+                transform=frame["transform"]
+                trans=transform["translation"];rotation=transform["rotation"]
+                world_pos,world_q=p.multiplyTransforms(
+                    base_pos,base_q,
+                    [trans["x"],trans["y"],trans["z"]],
+                    [rotation["x"],rotation["y"],rotation["z"],rotation["w"]],
+                )
+                actual=p.getLinkState(
+                    world.robot,i,computeForwardKinematics=True,
+                    physicsClientId=cid,
+                )
+                self.assertLess(math.dist(world_pos,actual[4]),1e-5)
+            preview=__import__("dsiq_native.ros2_bridge",fromlist=["capture_ros_contract"]).capture_ros_contract(
+                world,RosBridgeSettings(frames=1,lidar_rays=8)
+            )
+            self.assertEqual(preview["tf_message"]["transform_count"],8)
+            self.assertFalse(preview["source"]["tf_published"])
+            self.assertTrue(preview["source"]["tf_available"])
+
     def test_preview_does_not_require_ros2_installation(self):
         data=preview_ros_contract(RosBridgeSettings(
             frames=1,steps_per_frame=1,lidar_rays=4

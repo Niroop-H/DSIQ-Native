@@ -28,6 +28,37 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 
 **Not yet built/qualified:** standalone RTX rendering integration, validated PhysX articulation simulation on the RTX 3050, MJCF import, production-qualified ROS 2 bridges, industry-calibrated robot dynamics, RTX-accurate RGB/depth sensors, realistic sensor noise calibration, detailed approved OEM CAD libraries, and production Windows installers. Actual CPU Bullet RGB-D/LiDAR and verified local URDF inspection/import exist, but they are not RTX or physically calibrated replacements. These are explicit milestones, not hidden stubs labeled complete.
 
+## Platform extension: robotics TF, data export, machine inspection, scene benchmarking, Windows packaging
+
+The following **new, measured/verified** workflows extend the existing
+physics/OpenUSD/robotics core rather than substituting screenshots:
+
+~~~powershell
+python -m dsiq_native machine-inventory path/to/machine.manifest.json
+python -m dsiq_native ros2-preview --lidar-rays 36
+python -m dsiq_native dataset-generate workcell-dataset --frames 8 --seed 1007
+python -m dsiq_native dataset-coco workcell-dataset workcell-coco.json --seed 1007
+python -m dsiq_native render-benchmark --frames 3 --width 160 --height 120
+~~~
+
+- The machine inventory reads actual source-checked URDF link inertia,
+  declared masses, joint limits, actuator ratings, and geometry counts.
+- ROS 2 can expose measured parent-relative Bullet reference-link poses
+  and a world-frame LiDAR fixture through optional /dsiq/tf publishing.
+  The offline TF contract is CI-tested, not live DDS interoperability.
+- COCO-style bounding boxes derive from real Bullet segmentation pixels
+  with disjoint deterministic train/validation splits; no real-world
+  sensor calibration or policy learning is inferred.
+- A CPU viewport benchmark measures actual TinyRenderer frame times,
+  image complexity and physics step timings on all three environments.
+  It is **not** an RTX 3050 GPU benchmark or photorealistic renderer.
+- A Windows PyInstaller portable unsigned CPU executable is built and
+  smoke-tested in CI. It is an experimental distributable, **not**
+  an OEM-qualified simulator, signed installer or Microsoft Store release.
+
+See [Platform release gates](docs/PLATFORM_RELEASE_GATES.md) for each
+engineering-area status and required industrial acceptance evidence.
+
 ## Unified core acceptance report (measured, not overstated)
 
 All three core reference engines can be verified together, including

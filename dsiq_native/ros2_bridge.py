@@ -55,6 +55,8 @@ def capture_ros_contract(world: BulletPlayground, settings: RosBridgeSettings) -
               for j in range(6)]
     report=world.report()
     stamp=_sim_stamp(world.step_index*PHYSICS_DT)
+    from .ros2_tf import capture_reference_tf
+    tf=capture_reference_tf(world)
     scan=BulletSensors(world).lidar_2d(
         origin_m=(-1.5,0.,.7),count=settings.lidar_rays,
         max_range_m=settings.scan_range_m,
@@ -76,6 +78,7 @@ def capture_ros_contract(world: BulletPlayground, settings: RosBridgeSettings) -
             "ros_type":"rosgraph_msgs/msg/Clock",
             "clock":stamp,
         },
+        "tf_message":tf,
         "joint_state":{
             "ros_type":"sensor_msgs/msg/JointState",
             "header":{"stamp":stamp,"frame_id":"dsiq_reference_base"},
@@ -107,6 +110,7 @@ def capture_ros_contract(world: BulletPlayground, settings: RosBridgeSettings) -
             "physically_qualified":False,
             "ros2_actuator_subscribers_enabled":False,
             "tf_published":False,
+            "tf_available":True,
             "hardware_control_enabled":False,
         },
     }
@@ -127,6 +131,8 @@ def publish_ros2(settings: RosBridgeSettings) -> dict:
         from rclpy.node import Node
         from sensor_msgs.msg import JointState, LaserScan
         from rosgraph_msgs.msg import Clock
+        from tf2_msgs.msg import TFMessage
+        from geometry_msgs.msg import TransformStamped
     except ImportError as exc:
         raise RuntimeError(
             "A functioning ROS 2 Python environment is required. "
@@ -152,6 +158,9 @@ def publish_ros2(settings: RosBridgeSettings) -> dict:
         )
         clock_pub=node.create_publisher(
             Clock,"/dsiq/clock",10
+        )
+        tf_pub=node.create_publisher(
+            TFMessage,"/dsiq/tf",10
         )
         with BulletPlayground(BulletSettings(payload_count=1)) as world:
             for _ in range(settings.frames):
@@ -193,6 +202,24 @@ def publish_ros2(settings: RosBridgeSettings) -> dict:
                 clock.clock.sec=jc["header"]["stamp"]["sec"]
                 clock.clock.nanosec=jc["header"]["stamp"]["nanosec"]
                 clock_pub.publish(clock)
+                tf_message=TFMessage()
+                for info in snapshot["tf_message"]["transforms"]:
+                    item=TransformStamped()
+                    item.header.frame_id=info["header"]["frame_id"]
+                    item.header.stamp.sec=info["header"]["stamp"]["sec"]
+                    item.header.stamp.nanosec=info["header"]["stamp"]["nanosec"]
+                    item.child_frame_id=info["child_frame_id"]
+                    pos=info["transform"]["translation"]
+                    rot=info["transform"]["rotation"]
+                    item.transform.translation.x=float(pos["x"])
+                    item.transform.translation.y=float(pos["y"])
+                    item.transform.translation.z=float(pos["z"])
+                    item.transform.rotation.x=float(rot["x"])
+                    item.transform.rotation.y=float(rot["y"])
+                    item.transform.rotation.z=float(rot["z"])
+                    item.transform.rotation.w=float(rot["w"])
+                    tf_message.transforms.append(item)
+                tf_pub.publish(tf_message)
                 published+=1
                 # Bounded wall-time pacing is not hard real-time scheduling.
                 target_time=settings.steps_per_frame*PHYSICS_DT
@@ -201,12 +228,13 @@ def publish_ros2(settings: RosBridgeSettings) -> dict:
                     time.sleep(delay)
         return {
             "published_frames":published,
-            "topics":["/dsiq/joint_states","/dsiq/scan","/dsiq/clock"],
+            "topics":["/dsiq/joint_states","/dsiq/scan","/dsiq/clock","/dsiq/tf"],
             "middleware":"rclpy",
             "read_only":True,
             "physical_robot_control":False,
             "real_time_guarantee":False,
-            "tf_published":False,
+            "tf_published":True,
+            "tf_source":"measured_Bullet_relative_link_poses",
         }
     finally:
         if node is not None:

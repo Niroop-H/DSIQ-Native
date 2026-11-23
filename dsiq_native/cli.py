@@ -44,6 +44,14 @@ def build_parser() -> argparse.ArgumentParser:
     profile.add_argument("scene")
     profile.add_argument("--max-prims",type=int,default=30000)
 
+    validator = sub.add_parser(
+        "usd-validate",help="Read-only bounded OpenUSD engineering validation"
+    )
+    validator.add_argument("scene")
+    validator.add_argument("--max-prims",type=int,default=20000)
+    validator.add_argument("--allow-noncanonical-units",action="store_true")
+    validator.add_argument("--allow-no-default-prim",action="store_true")
+
     attach = sub.add_parser("attach", help="Reference verified real USD assets")
     attach.add_argument("scene")
     attach.add_argument("manifest")
@@ -771,6 +779,14 @@ def main(argv: list[str] | None = None) -> int:
         elif command == "usd-scene-profile":
             from .usd_scene_profile import profile_usd_scene
             result=profile_usd_scene(args.scene,max_prims=args.max_prims)
+        elif command == "usd-validate":
+            from .usd_validator import validate_usd_stage
+            result=validate_usd_stage(
+                args.scene,max_prims=args.max_prims,
+                require_metric_z_up=not args.allow_noncanonical_units,
+                require_default_prim=not args.allow_no_default_prim,
+            )
+            code=0 if result["passed"] else 3
         elif command == "attach":
             result = attach_asset(args.scene, args.manifest)
         elif command == "playground":

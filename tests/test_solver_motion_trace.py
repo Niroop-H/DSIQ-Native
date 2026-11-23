@@ -52,6 +52,11 @@ class TrueMotionTraceAcceptance(unittest.TestCase):
             len(solver["samples"])==20
             for solver in result["backend_measurements"].values()
         ))
+        self.assertTrue(all(
+            solver["source_lower_m"]==0. and solver["source_upper_m"]==1.2 and
+            not solver["source_travel_bounds_violated"]
+            for solver in result["backend_measurements"].values()
+        ))
         for backend in result["backend_measurements"].values():
             self.assertTrue(all(
                 a["step"]<b["step"] and
@@ -59,6 +64,11 @@ class TrueMotionTraceAcceptance(unittest.TestCase):
                 for a,b in zip(backend["samples"],backend["samples"][1:])
             ))
             self.assertLess(backend["max_position_above_target_m"],.20)
+
+    def test_reject_source_specific_z_travel_overrange(self):
+        from dsiq_native.solver_motion_trace import compare_motion_traces
+        with self.assertRaisesRegex(ValueError,"verified source URDF"):
+            compare_motion_traces(joint="actuator_z",target=.6)
 
 if __name__=="__main__":
     unittest.main()

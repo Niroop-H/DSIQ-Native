@@ -137,6 +137,9 @@ class GPUStudio:
         self._triangles=0
         self._geometry_cache={}
         self._visual_draw_instances=0
+        self._static_visual_roots=[]
+        self._static_source_triangles=0
+        self._static_visual_instances=0
         self._grid_snap_m=0.0
         self._status="Load a licensed URDF or a DSIQ workcell; data is not OEM qualified."
         self._make_lights()
@@ -398,17 +401,24 @@ class GPUStudio:
     def render_resource_report(self) -> dict:
         """CPU-side Panda3D geometry sharing counts, never measured VRAM."""
         unique_triangles=sum(tris for geom,tris in self._geometry_cache.values())
-        instances=sum(int(part.triangle_count)
+        instances=(sum(int(part.triangle_count)
                       for source in self._sources.values()
                       for part in source["visual_parts"])
-        if instances!=self._triangles or unique_triangles>instances:
+                   +self._static_source_triangles)
+        if (instances!=self._triangles+self._static_source_triangles or
+                unique_triangles>instances):
             raise AssertionError("GPU draw-geometry cache accounting inconsistent")
         return {
             "schema":"dsiq-opengl-exact-buffer-reuse-v1",
             "total_authored_triangle_instances":instances,
             "unique_geom_buffer_triangles":unique_triangles,
             "reused_triangle_instances":instances-unique_triangles,
-            "verified_source_visual_nodes":self._visual_draw_instances,
+            "verified_source_visual_nodes":(
+                self._visual_draw_instances+self._static_visual_instances),
+            "static_reference_visual_node_count":self._static_visual_instances,
+            "static_reference_triangle_instances":self._static_source_triangles,
+            "static_reference_copy_count":len(self._static_visual_roots),
+            "static_references_have_no_articulated_bullet_bodies":True,
             "unique_geom_buffer_objects":len(self._geometry_cache),
             "distinct_bullet_assemblies":len(self._objects),
             "render_data_deduplicated_by_exact_geometry_and_rgba":True,
@@ -420,12 +430,89 @@ class GPUStudio:
             "hardware_performance_qualified":False,
         }
 
+    def add_static_visual_references(self, source_asset_id: str,
+                                     *, copies: int=32,
+                                     spacing_m: float=2.2) -> dict:
+        """Render-only instances of exact source geometry at a physics pose.
+
+        These intentionally have NO new Bullet body or actuator/sensor state.
+        They are graphics load fixtures, not independent industrial machines.
+        The verified source asset remains in the actual Bullet world.
+        """
+        if type(copies) is not int or not 1<=copies<=512:
+            raise ValueError("Visual-only reference copy count must be 1..512")
+        if (isinstance(spacing_m,bool) or
+            not isinstance(spacing_m,(int,float)) or
+            not math.isfinite(spacing_m) or not 1.0<=spacing_m<=4.0):
+            raise ValueError("Source visual spacing must be finite 1..4 meters")
+        if source_asset_id not in self._objects:
+            raise ValueError("Visual-only references require a verified loaded source")
+        source=self._sources[source_asset_id]
+        new_triangles=copies*source["triangle_count"]
+        if self._triangles+self._static_source_triangles+new_triangles>500_000:
+            raise ValueError("Reference geometry exceeds 500k triangle GPU scene budget")
+        columns=math.ceil(math.sqrt(copies+1))
+        src=self._objects[source_asset_id]["links"]
+        # Capture real Bullet -> Panda3D link pose at this instant; copied
+        # visual instances are frozen in this pose and never drive physics.
+        link_poses={
+            name:(
+                tuple(float(v) for v in entry["node"].getPos(self.base.render)),
+                entry["node"].getQuat(self.base.render)
+            ) for name,entry in src.items()
+        }
+        old_keys=set(self._geometry_cache)
+        created=[]
+        try:
+            for i in range(copies):
+                root=self.base.render.attachNewNode(
+                    f"VISUAL_REFERENCE_ONLY_{source_asset_id}_{i:03d}")
+                created.append(root)
+                # Start right of the physical prototype so visually distinct.
+                root.setPos((i%columns+1)*spacing_m,
+                            (i//columns)*spacing_m,0.)
+                for part in source["visual_parts"]:
+                    pos,quat=link_poses[part.link_name]
+                    link=root.attachNewNode("STATIC_"+part.link_name)
+                    link.setPos(*pos)
+                    link.setQuat(quat)
+                    geometry_node=link.attachNewNode(_panda_geometry(
+                        part,P=self.P,geometry_cache=self._geometry_cache))
+                    geometry_node.setTwoSided(True)
+            self._static_visual_roots.extend(created)
+            self._static_source_triangles+=new_triangles
+            self._static_visual_instances+=copies*source["part_count"]
+            self._center=(columns*spacing_m*.5,
+                          max(1.,math.ceil(copies/columns)*spacing_m*.5),
+                          .75)
+            self._distance=max(5.5,3.4*columns)
+            self._set_camera()
+            report=self.render_resource_report()
+        except Exception:
+            for node in created:
+                node.removeNode()
+            for key in set(self._geometry_cache)-old_keys:
+                del self._geometry_cache[key]
+            raise
+        return {
+            "schema":"dsiq-source-verified-visual-only-stress-v1",
+            "source_asset_id":source_asset_id,
+            "source_urdf_sha256":source["source_urdf_sha256"],
+            "static_visual_reference_copies_added":copies,
+            "triangle_instances_added":new_triangles,
+            "physical_robot_bodies_added":0,
+            "physical_actuator_instances_added":0,
+            "frozen_snapshot_of_physics_step":self.world.step_index,
+            "source_draw_geometry_cache":report,
+            "not_an_independent_industrial_machine_simulation":True,
+        }
+
     def add_verified_machine(self, manifest_file: str|Path,
                              *, base_position_m=(0.,1.,0.)):
         # All provenance/source triangles checked BEFORE changing Bullet
         # or allocating GPU vertex buffers.
         geometry=extract_verified_urdf_geometry(manifest_file)
-        if self._triangles+geometry["triangle_count"]>500_000:
+        if self._triangles+self._static_source_triangles+geometry["triangle_count"]>500_000:
             raise ValueError("GPU scene triangle budget exceeded")
         robot=self.world.import_urdf_robot(
             str(manifest_file),base_position_m=base_position_m
@@ -727,7 +814,9 @@ class GPUStudio:
             "observed_fps":frames/elapsed if elapsed>0 else None,
             "interframe_p50_ms":median,
             "interframe_p95_ms":p95,
-            "triangles_in_gpu_scene":self._triangles,
+            "triangles_in_gpu_scene":self._triangles+self._static_source_triangles,
+            "physics_backed_source_triangles":self._triangles,
+            "visual_only_source_triangle_instances":self._static_source_triangles,
             "render_resource_reuse":self.render_resource_report(),
             "referenced_assemblies":len(self._objects),
             "budget_advisory":budget,
@@ -812,6 +901,51 @@ def benchmark_exact_geometry_instances(*, copies: int=4, frames: int=48,
                 "gpu_memory_reuse_not_process_measured":True,
                 "hydra_or_vulkan_renderer_implemented":False,
                 "real_omni_feature_parity_qualified":False,
+            })
+            return report
+    finally:
+        app.close()
+
+
+def benchmark_static_reference_scaling(*, visual_copies: int=64,
+                                       frames: int=36,width: int=800,
+                                       height: int=600,
+                                       screenshot: str|Path|None=None) -> dict:
+    """Measure genuine GL raster load of real source geometry copies.
+
+    Only the original gantry has a real Bullet articulated model. All extra
+    visible CAD copies are STATIC reference drawings, explicitly labelled.
+    """
+    if type(visual_copies) is not int or not 1<=visual_copies<=512:
+        raise ValueError("Visual-only stress copies must be in [1,512]")
+    app=GPUStudio(headless=True,width=width,height=height)
+    try:
+        from .machine_designer import MachineDesign,save_project
+        with tempfile.TemporaryDirectory(prefix="dsiq-static-cad-load-") as root:
+            source=save_project(
+                MachineDesign(asset_id="verified_visual_stress_source"),
+                Path(root)/"gantry",
+            )
+            prototype=app.add_verified_machine(
+                source["manifest"],base_position_m=(0.,1.,0.))
+            started=time.perf_counter()
+            visual=app.add_static_visual_references(
+                prototype["asset_id"],copies=visual_copies,
+            )
+            copy_seconds=time.perf_counter()-started
+            if len(app.world.imported_robots)!=1:
+                raise AssertionError("Visual stress introduced an undeclared Bullet body")
+            report=app.benchmark(frames=frames,screenshot=screenshot)
+            report.update({
+                "schema":"dsiq-visual-only-real-opengl-scalability-v1",
+                "one_source_backed_bullet_prototype":prototype,
+                "static_graphic_reference_report":visual,
+                "static_reference_copy_wall_seconds":copy_seconds,
+                "actual_Bullet_imported_body_count":1,
+                "only_one_physically_simulated_robot":True,
+                "source_model_self_authored_not_oem":True,
+                "measured_process_vram_saving":None,
+                "not_vulkan_hydra_or_rtx":True,
             })
             return report
     finally:

@@ -300,17 +300,19 @@ jobs:
           python -m unittest discover -s tests -p test_secure_update.py -v
           python -m unittest discover -s tests -p test_launch_evidence.py -v
           python -m unittest discover -s tests -p test_motion_safety.py -v
-      - name: Record dependency vulnerability results for explicit human triage
+      - name: Record dependency vulnerabilities and FAIL release-security gate on any audit failure
         shell: bash
         run: |
           mkdir -p build/security
           if pip-audit --format json --output build/security/dependency-audit.json; then
-            echo "No vulnerabilities reported for this runner's installed Python environment" > build/security/audit-status.txt
+            echo "PASS: no vulnerabilities reported in this runner's installed Python environment" > build/security/audit-status.txt
           else
-            echo "AUDIT FLAG: vulnerable/unresolved dependencies OR audit service failure; manual review is mandatory" > build/security/audit-status.txt
+            echo "BLOCKED: vulnerable dependencies or audit service failure; independent remediation and rerun required" > build/security/audit-status.txt
+            exit 1
           fi
-          test -s build/security/audit-status.txt
-      - name: Publish security evidence (NOT certification)
+          test -s build/security/dependency-audit.json
+      - name: Publish security evidence even when the audit blocks CI (NOT certification)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dsiq-security-advisory-unreviewed

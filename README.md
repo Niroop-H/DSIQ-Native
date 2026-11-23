@@ -34,9 +34,11 @@ The physics core now has isolated, measured **energy-drift and linear
 momentum** tests with explicit analytic references. The imported robotics
 core can plan and execute multi-axis trajectories for rights-verified
 revolute/prismatic URDF robots using URDF-specified velocity limits
-rather than only the bundled 6R manipulator. The OpenUSD core can
-serialize **real measured Bullet link/joint motion** as time-sampled
-metric/Z-up USD animation data.
+rather than only the bundled 6R manipulator. Before CLI motor replay,
+DSIQ now screens actual Bullet collision geometry at every path sample
+and refuses a blocked trajectory (not continuous swept CCD). The OpenUSD
+core can serialize **real measured Bullet link/joint motion** as
+time-sampled metric/Z-up USD animation data.
 
     python -m dsiq_native physics-conservation
     python -m dsiq_native robot-urdf-motion machine/machine.manifest.json --target actuator_x=0.25

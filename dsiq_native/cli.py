@@ -252,6 +252,8 @@ def build_parser() -> argparse.ArgumentParser:
     urdfmotion.add_argument("--target",action="append",required=True,
         metavar="JOINT=VALUE",help="Repeat to command multiple named URDF axes")
     urdfmotion.add_argument("--duration",type=float,default=None)
+    urdfmotion.add_argument("--clearance-m",type=float,default=.003,
+        help="Required per-sample Bullet geometry separation; not continuous CCD")
     urdfmotion.add_argument("--record-every",type=int,default=24)
     rec=sub.add_parser(
         "bullet-usd-record",
@@ -298,9 +300,20 @@ def main(argv: list[str] | None = None) -> int:
                 plan=plan_imported_trajectory(
                     world,imported["asset_id"],values,duration_s=args.duration
                 )
+                from .motion_collision import screen_imported_path
+                clearance=screen_imported_path(
+                    world,plan,clearance_m=args.clearance_m
+                )
+                if not clearance["collision_screen_passed"]:
+                    raise ValueError(
+                        "Imported URDF motion rejected by actual Bullet collision "
+                        "screening at sample "
+                        +str(clearance["first_blocking_collision"])
+                    )
                 result={
                     "import":imported,
                     "plan":plan.summary(),
+                    "clearance_screening":clearance,
                     "tracking":execute_imported_trajectory(
                         world,plan,record_every=args.record_every,
                     ),

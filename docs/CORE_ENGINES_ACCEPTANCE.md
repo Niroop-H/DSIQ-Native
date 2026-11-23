@@ -47,6 +47,13 @@ Execution uses actual Bullet motor controls and records measured
 feedback, requested state, max/p95 tracking error, travel-limit
 exceedances and observed contact counts.
 
+The CLI also fails closed if actual Bullet per-sample geometry screening
+finds an obstacle along the requested joint trajectory. It snapshots
+and restores the solver world before live execution, and reports
+which sample obstructed the path. This is NOT continuous swept
+collision detection and cannot certify motion safety between samples
+or self-collisions without a qualified self-collision model.
+
 LIMITATION: This is velocity-bounded reference motion, NOT a
 collision-free, torque/acceleration qualified industrial trajectory.
 Real robot acceleration, torque/load, swept collision, joint stiffness,

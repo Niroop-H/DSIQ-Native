@@ -45,6 +45,8 @@ class CorePhysicsRobotCLITests(unittest.TestCase):
             )
             self.assertEqual(status,0,report)
             self.assertEqual(len(report["plan"]["joint_names"]),3)
+            self.assertTrue(report["clearance_screening"]["collision_screen_passed"])
+            self.assertFalse(report["clearance_screening"]["full_swept_collision_detection"])
             self.assertGreater(
                 report["tracking"]["final_actual"]["actuator_x"],.02
             )

@@ -71,6 +71,8 @@ The prior 42/100 figure is only a provisional assessment, not a new score.
 
 [View the 20-track master implementation and acceptance matrix](docs/OMNIVERSE_FULL_PARITY_MASTER_MATRIX.md).
 
+[Read the independently executed 240 Hz Bullet/MuJoCo motor-trace evidence and strict 10 mm acceptance gates](docs/2026_11_SOLVER_MOTION_ACCEPTANCE.md).
+
 To run the optional **real MuJoCo-vs-Bullet** CPU comparison (not a safety or cross-solver equivalence certificate):
 
 ```powershell

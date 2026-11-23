@@ -169,6 +169,10 @@ def benchmark_warp_xyz(*,envs: int=16384,steps: int=240,
     if cuda != device.startswith("cuda:"):
         raise RuntimeError("Warp device type does not match requested execution")
 
+    from .gpu_device_budget import check_cuda_memory_admission
+    cuda_admission=check_cuda_memory_admission(
+        selected,estimated_arrays_bytes=envs*3*7*4+5*3*4,reserve_mib=256,
+    )
     params=source_verified_xyz_parameters()
     from .bullet_runtime import PHYSICS_DT
     import numpy as np
@@ -268,6 +272,7 @@ def benchmark_warp_xyz(*,envs: int=16384,steps: int=240,
         "source_verified_urdf_sha256":params["source_urdf_sha256"],
         "source_axis_limits":params["axes"],
         "estimated_device_arrays_bytes":envs*3*7*4+5*3*4,
+        "cuda_memory_admission":cuda_admission,
         "memory_budget_mib":memory_limit_mib,
         "warmup_compile_allocation_wall_s":setup_s,
         "synchronized_kernel_wall_s":execution_s,

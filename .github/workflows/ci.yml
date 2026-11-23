@@ -291,8 +291,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install genuine Ed25519 validation and dependency auditor
+      - name: Install patched build tooling, Ed25519 verifier and dependency auditor
         run: |
+          python -m pip install --upgrade "setuptools>=84.1.0,<90"
           python -m pip install -e ".[security]"
           python -m pip install "pip-audit>=2.7,<3"
       - name: Verify real signature, tamper, downgrade, missing evidence and motion limits

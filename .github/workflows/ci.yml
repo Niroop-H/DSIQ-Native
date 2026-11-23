@@ -46,6 +46,8 @@ jobs:
           python -m dsiq_native environment-render cleanroom_bay --png build/reference-scenes/cleanroom.png
           python -m dsiq_native environment-render logistics_bay --png build/reference-scenes/logistics.png
           python -m dsiq_native environment-usd robotics_cell build/reference-scenes/robotics.usda
+          python -m dsiq_native usd-validate build/reference-scenes/robotics.usda > build/reference-scenes/usd-engineering-audit.json
+          python -c 'import json; a=json.load(open("build/reference-scenes/usd-engineering-audit.json")); assert a["passed"] and a["stage_sha256_before"]==a["stage_sha256_after"] and a["counts"]["prims"]>0'
           python -m dsiq_native environment-usd cleanroom_bay build/reference-scenes/cleanroom.usda
           python -m dsiq_native environment-usd logistics_bay build/reference-scenes/logistics.usda
           python -m dsiq_native machine-create build/reference-scenes/user-gantry --name review_gantry

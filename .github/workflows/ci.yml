@@ -36,7 +36,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python -m pip install -e ".[robotics]"
+      - run: python -m pip install -e ".[cad]"
       - run: python -c "from pxr import Usd, UsdGeom, UsdPhysics; print('Pixar USD available')"
       - run: python -m unittest discover -s tests -v
       - name: Generate actual reference scenes and user machine
@@ -53,6 +53,7 @@ jobs:
           python -m dsiq_native bullet-usd-record build/reference-scenes/measured-motion.usda --frames 4 --steps-per-frame 12 --urdf-manifest build/reference-scenes/user-gantry/machine.manifest.json --joint actuator_x --target 0.25
           python -m dsiq_native usd-telemetry-inspect build/reference-scenes/measured-motion.usda
           python -m dsiq_native usd-urdf-visual-record build/reference-scenes/user-gantry/machine.manifest.json build/reference-scenes/source-geometry-animation.usda --frames 4 --steps-per-frame 12 --joint actuator_x --target 0.25
+          python -m dsiq_native cad-usd-record build/reference-scenes/user-gantry/machine.manifest.json build/reference-scenes/source-cad-meshes.usda --frames 4 --steps-per-frame 12 --joint actuator_x --target 0.25
           python -m dsiq_native robot-policy-train build/reference-scenes/reference-policy.json --episodes 16 --horizon 10 --seed 1007
           python -m dsiq_native core-readiness > build/reference-scenes/core-readiness.json
           python -m dsiq_native workcell-new build/reference-scenes/reference.workcell.json --id review_robotics_cell --name "Unqualified CI reference cell" --manifest build/reference-scenes/user-gantry/machine.manifest.json
@@ -187,3 +188,31 @@ jobs:
           source /opt/ros/jazzy/setup.bash
           set -u
           /usr/bin/python3 scripts/ros2_middleware_acceptance.py build/reference-scenes/ros2-preview-tf.json
+
+  opengl-source-cad-studio:
+    name: Real native OpenGL workcell GPU pipeline (Mesa CI software GL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install OpenGL context and display driver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth libgl1 libgl1-mesa-dri mesa-utils
+      - name: Install actual Panda3D GPU raster renderer, source CAD and Bullet
+        run: python -m pip install -e ".[gpu]"
+      - name: Verify GL pipeline and native editor transform operations
+        run: DSIQ_GPU_CI=1 xvfb-run -a -s "-screen 0 1280x720x24" python -m unittest discover -s tests -p test_gpu_opengl_studio.py -v
+      - name: Benchmark actual OpenGL rendering and record screenshot
+        run: |
+          mkdir -p build/gpu
+          xvfb-run -a -s "-screen 0 1280x720x24" python -m dsiq_native gpu-benchmark --frames 48 --width 640 --height 480 --screenshot build/gpu/opengl-scene.png > build/gpu/opengl-report.json
+          python -c 'import json; d=json.load(open("build/gpu/opengl-report.json")); assert d["triangles_in_gpu_scene"]>200 and d["observed_fps"]>0; assert not d["nvidia_rtx_hardware_qualified"]'
+      - name: Upload real framebuffer capture + measured timings
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsiq-native-opengl-software-ci
+          path: build/gpu/
+          retention-days: 7

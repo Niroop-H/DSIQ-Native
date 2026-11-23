@@ -324,6 +324,52 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rel_check.add_argument("archive")
     rel_check.add_argument("attestation")
+    gpu=sub.add_parser(
+        "gpu-studio",
+        help="Launch real OpenGL native workcell editor with verified CAD geometry"
+    )
+    gpu.add_argument("--manifest",default=None)
+    gpu.add_argument("--workcell",default=None)
+    bench=sub.add_parser(
+        "gpu-benchmark",
+        help="Measure real Panda3D OpenGL frame times, GL driver, and RAM/VRAM evidence"
+    )
+    bench.add_argument("--manifest",default=None)
+    bench.add_argument("--frames",type=int,default=60)
+    bench.add_argument("--width",type=int,default=800)
+    bench.add_argument("--height",type=int,default=600)
+    bench.add_argument("--screenshot",default=None)
+    bench.add_argument("--min-fps",type=float,default=None)
+    bench.add_argument("--require-nvidia",action="store_true")
+    cad=sub.add_parser(
+        "cad-usd-record",
+        help="Export licensed hash-locked URDF triangle meshes with measured Bullet link animation"
+    )
+    cad.add_argument("manifest")
+    cad.add_argument("scene_file")
+    cad.add_argument("--frames",type=int,default=8)
+    cad.add_argument("--steps-per-frame",type=int,default=12)
+    cad.add_argument("--joint",default=None)
+    cad.add_argument("--target",type=float,default=None)
+    lock=sub.add_parser(
+        "cad-mesh-lock",
+        help="Report SHA256 hashes for all imported URDF visual meshes; review before manifest edit"
+    )
+    lock.add_argument("manifest")
+    vector=sub.add_parser(
+        "robot-vector-benchmark",
+        help="Measure CPU throughput of 1..8 isolated actual Bullet gantry learning environments"
+    )
+    vector.add_argument("--envs",type=int,default=4)
+    vector.add_argument("--steps",type=int,default=30)
+    vector.add_argument("--seed",type=int,default=1007)
+    compare=sub.add_parser(
+        "physical-compare",
+        help="Compare external measured robot joint observations with genuine Bullet feedback"
+    )
+    compare.add_argument("simulation_json")
+    compare.add_argument("external_measurements_json")
+    compare.add_argument("--tolerance",type=float,default=.005)
     return p
 
 
@@ -332,7 +378,72 @@ def main(argv: list[str] | None = None) -> int:
     try:
         command = args.command
         code = 0
-        if command == "release-attest":
+        if command == "robot-vector-benchmark":
+            from .vector_learning import benchmark_vector_learning
+            result=benchmark_vector_learning(
+                num_envs=args.envs,steps=args.steps,seed=args.seed,
+            )
+        elif command == "physical-compare":
+            from .physical_validation import compare_measured_robot_motion
+            result=compare_measured_robot_motion(
+                args.simulation_json,args.external_measurements_json,
+                tolerance=args.tolerance,
+            )
+            code=0 if result["all_operator_tolerances_met"] else 3
+        elif command == "gpu-studio":
+            from .gpu_studio import GPUStudio
+            if args.manifest and args.workcell:
+                raise ValueError("Select either one manifest or one workcell")
+            editor=GPUStudio()
+            try:
+                if args.manifest:
+                    editor.add_verified_machine(args.manifest)
+                if args.workcell:
+                    editor.load_workcell(args.workcell)
+                editor.run()
+            finally:
+                editor.close()
+            result={
+                "renderer":"Panda3D_OpenGL",
+                "closed":True,"oem_qualified":False,
+            }
+        elif command == "gpu-benchmark":
+            from .gpu_studio import benchmark_gpu_pipeline
+            result=benchmark_gpu_pipeline(
+                frames=args.frames,manifest=args.manifest,
+                screenshot=args.screenshot,width=args.width,height=args.height,
+            )
+            if args.min_fps is not None:
+                if not math.isfinite(args.min_fps) or not 1<=args.min_fps<=240:
+                    raise ValueError("--min-fps must be in [1,240]")
+                result["minimum_fps_required"]=args.min_fps
+                result["fps_gate_passed"]=result["observed_fps"]>=args.min_fps
+                code=0 if result["fps_gate_passed"] else 3
+            if args.require_nvidia:
+                gpu=result["budget_advisory"].get("gpu") or {}
+                identity="NVIDIA" in result["reported_gl_vendor"].upper()
+                nvidia_present=bool(gpu and "NVIDIA" in gpu.get("name","").upper())
+                result["nvidia_gl_and_device_verified"]=identity and nvidia_present
+                if not result["nvidia_gl_and_device_verified"]:
+                    code=3
+            result["industrial_qualification_ready"]=False
+        elif command == "cad-mesh-lock":
+            from .cad_geometry import lock_mesh_hashes
+            result=lock_mesh_hashes(args.manifest)
+        elif command == "cad-usd-record":
+            from .usd_cad_motion import record_source_cad_usd
+            from .bullet_runtime import BulletPlayground,BulletSettings
+            if (args.joint is None)!=(args.target is None):
+                raise ValueError("--joint and --target must both be provided")
+            with BulletPlayground(BulletSettings(payload_count=0)) as world:
+                model=world.import_urdf_robot(args.manifest)
+                if args.joint:
+                    world.command_imported_joint(model["asset_id"],args.joint,args.target)
+                result=record_source_cad_usd(
+                    world,args.manifest,args.scene_file,
+                    frames=args.frames,steps_per_frame=args.steps_per_frame,
+                )
+        elif command == "release-attest":
             from .release_integrity import make_attestation
             result=make_attestation(args.archive,args.attestation)
         elif command == "release-verify":

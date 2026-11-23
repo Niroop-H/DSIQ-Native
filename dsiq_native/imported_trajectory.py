@@ -348,6 +348,11 @@ def execute_imported_trajectory(world, plan: ImportedTrajectory,
     completed = abort_reason is None and completed_steps == len(plan.samples)-1
     return {
         "asset_id":plan.asset_id,
+        "source_urdf_sha256":robot.get("source_urdf_sha256"),
+        "joint_units_from_loaded_urdf":{
+            name:("m" if actual[name]["type"]==p.JOINT_PRISMATIC else "rad")
+            for name in plan.names
+        },
         "execution_preflight":verification,
         "simulated_steps":completed_steps,
         "planned_steps":len(plan.samples)-1,

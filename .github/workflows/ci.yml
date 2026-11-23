@@ -29,6 +29,32 @@ jobs:
       - run: python -m compileall -q dsiq_native source/extensions/dsiq.studio/dsiq tests
       - run: python -m unittest discover -s tests -v
 
+  warp-native-kernel-reference:
+    name: NVIDIA Warp compiled vector kernel CPU reference (CUDA hardware required separately)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install actual NVIDIA Warp compiler/runtime and independent numpy oracle
+        run: python -m pip install -e ".[gpu-compute]"
+      - name: Compile and run real native Warp kernel, prove bounded source metadata
+        run: |
+          python -m unittest discover -s tests -p test_gpu_vector_gantry.py -v
+          mkdir -p build/gpu-compute
+          python -m dsiq_native gpu-compute-check > build/gpu-compute/cuda-devices.json
+          python -m dsiq_native gpu-vector-benchmark --device cpu --envs 256 --steps 48 --oracle-samples 16 > build/gpu-compute/compiled-warp-cpu-reference.json
+          python -c 'import json; p=json.load(open("build/gpu-compute/compiled-warp-cpu-reference.json")); assert p["independent_oracle_passed"] and p["uses_real_warp_compiled_kernel"] and not p["actual_gpu_kernel_executed"] and not p["hardware_qualified_on_requested_gpu"] and p["total_actuator_updates"]==12288'
+      - name: Archive native Warp reference evidence; do not fabricate CUDA success
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsiq-warp-kernel-cpu-correctness-not-cuda-hardware
+          path: build/gpu-compute/
+          retention-days: 7
+
   openusd-integration:
     runs-on: ubuntu-latest
     steps:

@@ -133,6 +133,12 @@ def build_parser() -> argparse.ArgumentParser:
         "physics-verify",
         help="Run actual Bullet gravity, contact, torque and repeatability acceptance fixtures"
     )
+    backend=sub.add_parser(
+        "physics-backend-check",
+        help="Run real source-bound solver-neutral API conformance in isolated Bullet worlds"
+    )
+    backend.add_argument("--backend",default="bullet_cpu_direct_v1",
+        help="Explicit backend identity; no silent fallback to Bullet")
     make = sub.add_parser("machine-create",help="Design a functional parametric XYZ gantry")
     make.add_argument("output_directory")
     make.add_argument("--name",default="dsiq_xyz_inspection_gantry")
@@ -846,6 +852,10 @@ def main(argv: list[str] | None = None) -> int:
             from .physics_benchmarks import run_physics_suite
             result = run_physics_suite()
             code = 0 if result["passed"] else 3
+        elif command == "physics-backend-check":
+            from .physics_backend import run_backend_conformance
+            result=run_backend_conformance(args.backend)
+            code=0 if result["passed"] else 3
         elif command == "machine-create":
             from .machine_designer import MachineDesign, save_project
             spec = MachineDesign(

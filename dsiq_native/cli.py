@@ -153,6 +153,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     compare.add_argument("--tolerance",type=float,default=.12,
         help="Screening joint-position residual in meters; not proof of parity")
+    trace=sub.add_parser(
+        "physics-motion-trace",
+        help="Measure actual Bullet/MuJoCo URDF actuator trajectories at identical timesteps"
+    )
+    trace.add_argument("--joint",default="actuator_x")
+    trace.add_argument("--target",type=float,default=.20)
+    trace.add_argument("--steps",type=int,default=100)
+    trace.add_argument("--sample-every",type=int,default=5)
+    trace.add_argument("--tolerance",type=float,default=.01)
+    trace.add_argument("--require-match",action="store_true",
+        help="Exit nonzero unless final residual AND source motor envelopes pass")
     make = sub.add_parser("machine-create",help="Design a functional parametric XYZ gantry")
     make.add_argument("output_directory")
     make.add_argument("--name",default="dsiq_xyz_inspection_gantry")
@@ -884,6 +895,17 @@ def main(argv: list[str] | None = None) -> int:
                 screening_tolerance_m=args.tolerance
             )
             code=0 if result["passed"] else 3
+        elif command == "physics-motion-trace":
+            from .solver_motion_trace import compare_motion_traces
+            result=compare_motion_traces(
+                joint=args.joint,target=args.target,steps=args.steps,
+                every=args.sample_every,tolerance_m=args.tolerance,
+            )
+            if args.require_match:
+                code=0 if (
+                    result["trajectory_comparison"]["within_final_tolerance"] and
+                    result["all_source_speed_and_effort_envelopes_satisfied"]
+                ) else 3
         elif command == "machine-create":
             from .machine_designer import MachineDesign, save_project
             spec = MachineDesign(

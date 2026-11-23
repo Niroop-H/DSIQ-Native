@@ -51,6 +51,42 @@ See [Multidomain milestone evidence](docs/MULTIDOMAIN_ENGINE_MILESTONE.md).
 
 **Not yet built/qualified:** standalone RTX rendering integration, validated PhysX articulation simulation on the RTX 3050, MJCF import, production-qualified ROS 2 bridges, industry-calibrated robot dynamics, RTX-accurate RGB/depth sensors, realistic sensor noise calibration, detailed approved OEM CAD libraries, and production Windows installers. Actual CPU Bullet RGB-D/LiDAR and verified local URDF inspection/import exist, but they are not RTX or physically calibrated replacements. These are explicit milestones, not hidden stubs labeled complete.
 
+## Toward 100-point evidence-backed commercial launch qualification
+
+The [100-point qualification plan](docs/100_POINT_QUALIFICATION_PLAN.md)
+maps the previous **42/100 subjective engineering baseline** to eight
+explicit P0/P1 external evidence gates. These checks do **not** declare
+DSIQ 100/100 or independently industrial/safety qualified.
+
+New executable capabilities:
+
+    python -m dsiq_native launch-evidence-audit project/launch.json
+    python -m dsiq_native robot-urdf-motion project/machine.manifest.json --target actuator_x=0.25 --motion-limit-file project/reviewed-joint-limits.json --require-reviewed-limits
+    python -m dsiq_native domain-randomization --envs 4 --iterations 24 --seed 1007
+
+Install secure offline update verification if needed:
+
+    python -m pip install -e ".[security]"
+    python -m dsiq_native update-verify update.json update.sig trusted-publisher.pub DSIQ-Native-1.2.3.zip --installed-version 1.2.2
+
+- Imported joint quintic trajectories can now be audited against a
+  **complete explicit document** of speed, acceleration and jerk limits,
+  using analytic maxima rather than selected frames.
+- Software simulation stop latch requires both documented limits and
+  actual Bullet sampled collision screening before a simulation move.
+  It is NOT an E-stop, not hardware safety and not continuous collision
+  certification.
+- The learning baseline can randomize actual Bullet gravity/friction
+  with reproducible seed while reporting measured joint feedback.
+  It is NOT externally calibrated domain randomization or sim-to-real.
+- Ed25519 signature + SHA-256 checks verify offline release bytes with
+  an **externally pinned public key** and reject downgrade. They do not
+  install software or prove publisher identity; signed MSIX/EXE/installer
+  and reviewed license/security evidence remain necessary.
+- All eight source-evidence categories have explicit integrity auditing.
+  Even a complete set of matching hashes does not automatically authorize
+  an industrial release.
+
 ## Native real-time OpenGL workcell editor and locked source CAD (experimental)
 
 DSIQ now has an optional **actual Panda3D/OpenGL rasterized editor** that

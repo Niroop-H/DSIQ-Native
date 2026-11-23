@@ -257,6 +257,10 @@ def build_parser() -> argparse.ArgumentParser:
     urdfmotion.add_argument("--clearance-m",type=float,default=.003,
         help="Required per-sample Bullet geometry separation; not continuous CCD")
     urdfmotion.add_argument("--record-every",type=int,default=24)
+    urdfmotion.add_argument("--motion-limit-file",default=None,
+        help="Explicit source-documented joint speed/acceleration/jerk limits")
+    urdfmotion.add_argument("--require-reviewed-limits",action="store_true",
+        help="Refuse simulation if no complete document-controlled joint limits")
     rec=sub.add_parser(
         "bullet-usd-record",
         help="Record real Bullet joint states and link-frame animation into genuine OpenUSD"
@@ -374,6 +378,27 @@ def build_parser() -> argparse.ArgumentParser:
         "release-sbom",help="Generate SPDX 2.3 installed Python component inventory"
     )
     sbom.add_argument("output_json")
+    evidence=sub.add_parser(
+        "launch-evidence-audit",
+        help="Audit P0/P1 launch qualification evidence file SHA256 and missing categories"
+    )
+    evidence.add_argument("manifest_json")
+    update=sub.add_parser(
+        "update-verify",
+        help="Verify signed, pinned-key Ed25519 offline release package; NEVER installs"
+    )
+    update.add_argument("manifest_json")
+    update.add_argument("signature_file")
+    update.add_argument("pinned_public_key")
+    update.add_argument("archive")
+    update.add_argument("--installed-version",required=True)
+    domain=sub.add_parser(
+        "domain-randomization",
+        help="Measure actual Bullet multiclient gravity/contact parameter diversity"
+    )
+    domain.add_argument("--envs",type=int,default=3)
+    domain.add_argument("--iterations",type=int,default=24)
+    domain.add_argument("--seed",type=int,default=1007)
     return p
 
 
@@ -382,7 +407,26 @@ def main(argv: list[str] | None = None) -> int:
     try:
         command = args.command
         code = 0
-        if command == "release-sbom":
+        if command == "launch-evidence-audit":
+            from .launch_evidence import audit_launch_evidence
+            result=audit_launch_evidence(args.manifest_json)
+            # Integrity inventory cannot itself authorize commercial launch.
+            code=3 if not result["production_or_industrial_launch_authorized"] else 0
+        elif command == "update-verify":
+            from .secure_update import verify_offline_update
+            result=verify_offline_update(
+                manifest_file=args.manifest_json,
+                signature_file=args.signature_file,
+                public_key_file=args.pinned_public_key,
+                archive_file=args.archive,
+                installed_version=args.installed_version,
+            )
+        elif command == "domain-randomization":
+            from .domain_randomization import run_domain_randomization
+            result=run_domain_randomization(
+                envs=args.envs,iterations=args.iterations,seed=args.seed
+            )
+        elif command == "release-sbom":
             from .release_sbom import build_spdx_inventory
             result=build_spdx_inventory(args.output_json)
         elif command == "robot-vector-benchmark":
@@ -517,6 +561,23 @@ def main(argv: list[str] | None = None) -> int:
                 plan=plan_imported_trajectory(
                     world,imported["asset_id"],values,duration_s=args.duration
                 )
+                from .motion_safety import (
+                    audit_joint_motion,load_joint_limits,SimulationStopLatch,
+                )
+                if args.require_reviewed_limits and not args.motion_limit_file:
+                    raise ValueError(
+                        "Reviewed motion limits required: --motion-limit-file missing"
+                    )
+                motion_audit=None
+                if args.motion_limit_file:
+                    motion_audit=audit_joint_motion(
+                        plan,load_joint_limits(args.motion_limit_file)
+                    )
+                    if not motion_audit["all_documented_limits_passed"]:
+                        raise ValueError(
+                            "Simulation motion denied: documented speed/"
+                            "acceleration/jerk requirements failed"
+                        )
                 from .motion_collision import screen_imported_path
                 clearance=screen_imported_path(
                     world,plan,clearance_m=args.clearance_m,
@@ -528,10 +589,23 @@ def main(argv: list[str] | None = None) -> int:
                         "screening at sample "
                         +str(clearance["first_blocking_collision"])
                     )
+                latch=SimulationStopLatch()
+                if motion_audit is not None:
+                    latch.arm(
+                        documented_limits_passed=motion_audit["all_documented_limits_passed"],
+                        collision_screen_passed=clearance["collision_screen_passed"],
+                    )
+                    latch.consume_single_move()
                 result={
                     "import":imported,
                     "plan":plan.summary(),
                     "clearance_screening":clearance,
+                    "kinematic_motion_limit_audit":motion_audit,
+                    "documented_kinematic_gate_used":motion_audit is not None,
+                    "simulation_stop_latch":latch.inspect() if motion_audit is not None else None,
+                    "legacy_reference_motion_without_safety_latch":motion_audit is None,
+                    "physical_estop_present":False,
+                    "industrial_safety_certified":False,
                     "tracking":execute_imported_trajectory(
                         world,plan,record_every=args.record_every,
                     ),

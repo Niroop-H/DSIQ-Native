@@ -149,6 +149,62 @@ class DesktopStudioUiSmokeTests(unittest.TestCase):
         self.assertTrue(report["passed"],report)
         self.assertIn("VERIFICATION",app._status_message)
 
+    def test_native_scene_hierarchy_loads_workcell_edits_pose_undo_and_saves_revision(self):
+        from dsiq_native.machine_designer import MachineDesign,save_project
+        from dsiq_native.workcell_acceptance import create_workcell,inspect_workcell
+        app=self.app
+        app.root.update()
+        with TemporaryDirectory() as tmp:
+            source=Path(tmp)
+            gantry=save_project(
+                MachineDesign(asset_id="gui_workcell_gantry"),
+                source/"gantry",
+            )
+            project=source/"editor_workcell.json"
+            create_workcell(
+                project,workcell_id="gui_workcell_test",
+                name="UI mechanical workcell test",
+                manifest=gantry["manifest"],
+            )
+            revision=source/"editor_workcell_rev2.json"
+            app.filedialog=type("StubDialog",(),{
+                "askopenfilename":staticmethod(lambda **kwargs:str(project)),
+                "asksaveasfilename":staticmethod(lambda **kwargs:str(revision)),
+            })()
+            app.open_workcell_project()
+            self.assertIsNotNone(app._active_workcell)
+            self.assertIn("gui_workcell_gantry",app.world.imported_robots)
+            app.open_scene_explorer()
+            app.root.update()
+            tree=app._editor_tree
+            self.assertTrue(tree.exists("asset:gui_workcell_gantry"))
+            tree.selection_set("asset:gui_workcell_gantry")
+            app._editor_choose()
+            app._editor_xyz_vars[0].set("0.40")
+            app._editor_xyz_vars[1].set("1.80")
+            app._editor_xyz_vars[2].set("0.00")
+            app._editor_apply()
+            moved=next(
+                row for row in app._scene_editor.entities()
+                if row["asset_id"]=="gui_workcell_gantry"
+            )
+            self.assertAlmostEqual(moved["position_m"][0],.4,places=6)
+            app._editor_undo()
+            reverted=next(
+                row for row in app._scene_editor.entities()
+                if row["asset_id"]=="gui_workcell_gantry"
+            )
+            self.assertAlmostEqual(reverted["position_m"][0],0.,places=6)
+            app._editor_redo()
+            saved=app.save_workcell_revision()
+            self.assertEqual(saved,str(revision))
+            self.assertEqual(inspect_workcell(revision)["status"],"INCOMPLETE")
+            spec=__import__("json").loads(revision.read_text())
+            self.assertEqual(spec["equipment"][0]["base_position_m"][0],.4)
+            audit=app.audit_active_workcell()
+            self.assertTrue(audit["runtime_passed"],audit)
+            self.assertFalse(audit["certified"])
+
     def test_reset_scene_retains_valid_ui(self):
         app = self.app
         app.root.update()

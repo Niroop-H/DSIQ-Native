@@ -5,7 +5,7 @@
 | Capability | Omniverse / Isaac-class target | Current DSIQ Native | Required gate |
 |---|---|---|---|
 | OpenUSD | Layers, references, payloads, variants, semantics | Metric stage creation, real asset attachment, new layered assembly workspace, external references, representation variants and separate pose edits | Layered roundtrip, performance, safe collaboration and full schema conformance |
-| Native editor | Scene tree, property tools, undo/redo, multi-view | Working standalone Tk CPU robotics studio with live viewport and black/light themes; optional Kit extension unverified on target GPU | Full editor, undo/redo, native Kit RTX device qualification |
+| Native editor | Scene tree, property tools, undo/redo, multi-view | Functional Bullet hierarchy/transform inspector, layout Undo/Redo, workcell project loading and revision export; Kit extension experimental | 3D transform gizmos, full CAD assembly constraints, GPU renderer, hardware qualification |
 | RTX renderer | Physically based lighting, path tracing, denoising | Not implemented independently; Kit host may supply renderer | RTX 3050 real-device frame and VRAM evidence |
 | Materials/CAD | Real assemblies, calibrated PBR, CAD translation | USD files plus provenance/rights gate only | Manufacturer- or expert-approved CAD and materials |
 | Rigid/soft/fluid physics | PhysX/advanced mechanics | Actual CPU Bullet rigid bodies, contacts, articulated reference robot, USD PhysicsScene schemas; PhysX runtime not qualified | Independent numeric / experimental benchmarks, GPU PhysX, soft/fluid models |
@@ -15,6 +15,23 @@
 | Industrial twins | Equipment semantics, processes, live telemetry | Asset manifest and authoring foundation | Commissioned data bindings and domain validation |
 | 16GiB RAM / RTX3050 | Selective graceful operation with constrained scene | Advisory GPU budget; standalone CPU software-rendered studio, headless Windows/Linux CI; RTX3050 GUI untested | Actual workstation RAM traces, GUI/fps/accuracy acceptance |
 | Shipping | Signed, supported Windows installer | Not implemented | Clean-room install, license/redistribution review |
+
+## Every workcell policy and editor progress
+
+- A versioned workcell schema now defines **required mechanical roles**
+  and **ten evidence categories for each individual workcell**.
+- Workcell catalogs hash all referenced projects and can run sequential
+  real Bullet physics audits for every entry, not only a selected demo.
+- A native scene hierarchy editor can inspect actual Bullet entities,
+  move imported assemblies in authoring mode and Undo/Redo real
+  scene-transform changes. A workcell project can be loaded
+  transactionally and saved as a new revision.
+- This is a significant **authoring and quality-gate foundation**, but
+  not a complete professional multi-viewport CAD modeler. There are
+  no edit gizmos, precise CAD assembly mates, RTX renderer or signed
+  external certification.
+- Missing tooling, fixtures, safety equipment and independent evidence
+  remain blocking results; none are silently fabricated.
 
 ## New tested/reference integration boundary
 

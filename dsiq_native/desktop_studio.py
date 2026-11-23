@@ -24,6 +24,7 @@ from .sensors import BulletSensors, CameraFrame
 from .camera import FreeCamera
 from .environments import ReferenceEnvironment, PRESETS
 from .machine_designer import MachineDesign, load_design, save_project
+from .scene_editor import SceneEditor
 
 
 PALETTES = {
@@ -129,6 +130,9 @@ class DesktopStudio:
         self.world = BulletPlayground(BulletSettings(payload_count=config.boxes))
         self.sensors = BulletSensors(self.world)
         self.environment = ReferenceEnvironment(self.world)
+        self._scene_editor = SceneEditor(self.world)
+        self._active_workcell = None
+        self._editor_window = None
         self._camera_mode = "orbit"
         self._free_camera = FreeCamera.look_at((2.9,-3.0,1.8),(.1,0.,.55))
         self.running = False
@@ -236,6 +240,8 @@ class DesktopStudio:
         self._section(left, "SCENE / PLAYGROUND")
         self._button(left, "Reset reference workcell", self.reset).pack(fill="x", pady=3)
         self._button(left, "Export reference OpenUSD", self.export_usd).pack(fill="x", pady=3)
+        self._button(left, "Open SCENE EXPLORER", self.open_scene_explorer, accent=True).pack(fill="x", pady=3)
+        self._button(left, "Open workcell project...", self.open_workcell_project).pack(fill="x", pady=3)
         self._section(left, "SIMULATION")
         playback = tk.Frame(left, background=p["panel"])
         playback.pack(fill="x")
@@ -276,6 +282,7 @@ class DesktopStudio:
             size=10, bold=True
         ).pack(side="left")
         self._button(toolbar, "Frame all", self.frame_all).pack(side="right")
+        self._button(toolbar, "Scene tree", self.open_scene_explorer).pack(side="right",padx=(0,6))
         self._button(toolbar, "Free camera", lambda: self.set_camera_mode("free")).pack(side="right", padx=(0,6))
         self._button(toolbar, "Orbit camera", lambda: self.set_camera_mode("orbit")).pack(side="right", padx=(0,6))
         self._viewport = tk.Label(
@@ -409,6 +416,17 @@ class DesktopStudio:
         machines_menu.add_command(label="Command imported machine joint...",
             command=lambda: self._safe(self.drive_imported_joint))
         menu.add_cascade(label="Machine Lab",menu=machines_menu)
+        workcell_menu = tk.Menu(menu,tearoff=False)
+        workcell_menu.add_command(label="Open verified workcell project...",
+            command=lambda: self._safe(self.open_workcell_project))
+        workcell_menu.add_command(label="Audit current workcell physics...",
+            command=lambda: self._safe(self.audit_active_workcell))
+        workcell_menu.add_command(label="Save new workcell revision...",
+            command=lambda: self._safe(self.save_workcell_revision))
+        workcell_menu.add_separator()
+        workcell_menu.add_command(label="Scene hierarchy and transform editor...",
+            command=lambda: self._safe(self.open_scene_explorer))
+        menu.add_cascade(label="Workcells",menu=workcell_menu)
         verify_menu = tk.Menu(menu, tearoff=False)
         verify_menu.add_command(label="Run quantitative physics verification",
             command=lambda: self._safe(self.verify_physics))
@@ -421,6 +439,7 @@ class DesktopStudio:
         self.theme = theme
         self.palette = PALETTES[theme]
         self._build()
+        self._editor_window = None
         self._status(f"{theme.upper()} theme active. Viewport retains actual sensor imagery.")
 
     def _status(self, text):
@@ -455,6 +474,8 @@ class DesktopStudio:
         self.world = BulletPlayground(BulletSettings(payload_count=self.config.boxes))
         self.sensors = BulletSensors(self.world)
         self.environment = ReferenceEnvironment(self.world)
+        self._scene_editor = SceneEditor(self.world)
+        self._active_workcell = None
         for joint in self._joint_vars:
             joint.set(0.0)
         self._status("New local Bullet scene created; previous sandbox state discarded.")
@@ -626,6 +647,259 @@ class DesktopStudio:
             f"{result['target']:.4f} {result['units']}. "
             "Dynamics remain unqualified for any physical robot."
         )
+
+    def open_workcell_project(self):
+        """Load all project assets transactionally, with proven source integrity."""
+        from .workcell_acceptance import inspect_workcell
+        from .environments import ReferenceEnvironment
+        path = self.filedialog.askopenfilename(
+            filetypes=[("DSIQ workcell", "*.json")],
+            title="Open a rights-verified engineering workcell",
+        )
+        if not path:
+            return
+        inspection=inspect_workcell(path)
+        if inspection["errors"]:
+            raise ValueError("Workcell source rejected: " + "; ".join(inspection["errors"]))
+        candidate=BulletPlayground(BulletSettings(payload_count=0))
+        try:
+            environment=ReferenceEnvironment(candidate)
+            environment.build(inspection["environment"])
+            for component in inspection["equipment"]:
+                candidate.import_urdf_robot(
+                    component["manifest"],
+                    base_position_m=component["base_position_m"],
+                )
+            # Actual Bullet joints must pass independent smoke tests.
+            reported=candidate.step(1)
+            if len(reported["imported_robots"])!=len(inspection["equipment"]):
+                raise RuntimeError("Not every workcell asset reached Bullet")
+        except Exception:
+            candidate.close()
+            raise
+        self.pause()
+        if self._editor_window is not None:
+            try:
+                self._editor_window.destroy()
+            except Exception:
+                pass
+            self._editor_window=None
+        self.world.close()
+        self.world=candidate
+        self.sensors=BulletSensors(candidate)
+        self.environment=environment
+        self._scene_editor=SceneEditor(candidate)
+        self._active_workcell=Path(path).resolve()
+        self._camera_mode="free"
+        self._free_camera=FreeCamera.look_at((3.5,-4.,2.),(0.,0.,.9))
+        self._status(
+            f"Loaded {inspection['workcell_id']} with "
+            f"{len(inspection['equipment'])} actual articulated assemblies. "
+            f"Engineering status: {inspection['status']}; "
+            f"{len(inspection['blockers'])} qualification blockers. "
+            "Import and physics execution do not establish industrial certification."
+        )
+
+    def audit_active_workcell(self):
+        """Run an isolated physics audit; do not alter the open editor state."""
+        from .workcell_acceptance import audit_workcell
+        if self._active_workcell is None:
+            raise ValueError("Open a workcell project first")
+        report=audit_workcell(self._active_workcell,steps=120)
+        self._status(
+            f"WORKCELL AUDIT {report.get('workcell_id','unknown')}: "
+            f"runtime {'PASS' if report['runtime_passed'] else 'FAIL'}. "
+            f"External qualification blockers: {len(report['blockers'])}. "
+            f"Status {report['status']}. Industrial certification: NO."
+        )
+        return report
+
+    def save_workcell_revision(self):
+        """Save authored assembly positions in a separate versioned workcell."""
+        if self._active_workcell is None:
+            raise ValueError("Load a workcell first to save its authored positions")
+        original=self._active_workcell
+        destination=self.filedialog.asksaveasfilename(
+            initialdir=str(original.parent),defaultextension=".json",
+            filetypes=[("DSIQ workcell", "*.json")],
+            title="Save a NEW version in the same project folder",
+        )
+        if not destination:
+            return
+        target=Path(destination).resolve()
+        if target.parent!=original.parent:
+            raise ValueError("Portable workcell revision must stay in same asset folder")
+        if target.exists():
+            raise FileExistsError("Refusing to overwrite an existing workcell revision")
+        spec=json.loads(original.read_text(encoding="utf-8"))
+        current={
+            e["asset_id"]:e["position_m"]
+            for e in self._scene_editor.entities() if e["group"]=="Imported machines"
+        }
+        for item in spec["equipment"]:
+            from .urdf_bridge import validate_robot_manifest
+            manifest=(original.parent/item["manifest"]).resolve()
+            identity,_=validate_robot_manifest(manifest)
+            asset_id=identity["asset_id"]
+            if asset_id not in current:
+                raise ValueError(f"Required workcell assembly {asset_id} not loaded")
+            item["base_position_m"]=current[asset_id]
+        spec["revision"]=str(spec["revision"])+"-edited"
+        target.write_text(json.dumps(spec,indent=2)+"\n",encoding="utf-8")
+        from .workcell_acceptance import inspect_workcell
+        check=inspect_workcell(target)
+        if check["errors"]:
+            target.unlink(missing_ok=True)
+            raise RuntimeError("Saved workcell failed source validation: "+"; ".join(check["errors"]))
+        self._status(
+            f"Saved editable workcell revision {target.name}. "
+            f"Status {check['status']}; independent industrial qualification still required."
+        )
+        return str(target)
+
+    def open_scene_explorer(self):
+        """Native hierarchy/property editor of actual Bullet scene bodies."""
+        from tkinter import ttk
+        if self._editor_window is not None:
+            try:
+                if self._editor_window.winfo_exists():
+                    self._editor_window.lift()
+                    self._editor_refresh()
+                    return
+            except Exception:
+                pass
+        tk=self.tk
+        palette=self.palette
+        win=tk.Toplevel(self.root)
+        win.title("DSIQ NATIVE  |  SCENE HIERARCHY & TRANSFORM EDITOR")
+        win.geometry("560x620")
+        win.minsize(400,460)
+        win.configure(background=palette["background"])
+        win.protocol("WM_DELETE_WINDOW",self._close_scene_explorer)
+        self._editor_window=win
+        self._editor_selected=None
+        tk.Label(win,text="SCENE HIERARCHY",font=("Segoe UI",15,"bold"),
+            background=palette["background"],foreground=palette["text"]).pack(
+            anchor="w",padx=14,pady=(16,5))
+        tk.Label(win,text="Real Bullet entities and declared asset classes. "
+            "Pose edits reposition a simulation model; they are NOT physical robot motion.",
+            background=palette["background"],foreground=palette["muted"],
+            wraplength=520,justify="left").pack(anchor="w",padx=14,pady=(0,8))
+        sty=ttk.Style(win)
+        sty.configure("DSIQ.Treeview",rowheight=26,
+            background=palette["panel"],foreground=palette["text"],
+            fieldbackground=palette["panel"])
+        sty.configure("DSIQ.Treeview.Heading",
+            background=palette["button"],foreground=palette["text"])
+        tree=ttk.Treeview(win,columns=("class","position"),
+            show="tree headings",selectmode="browse",style="DSIQ.Treeview")
+        tree.heading("#0",text="ENTITY")
+        tree.heading("class",text="CLASS")
+        tree.heading("position",text="XYZ meters")
+        tree.column("#0",width=190,stretch=True)
+        tree.column("class",width=90)
+        tree.column("position",width=175)
+        tree.pack(fill="both",expand=True,padx=14,pady=5)
+        self._editor_tree=tree
+        self._editor_xyz_vars=[
+            tk.StringVar(value="0.000") for _ in range(3)
+        ]
+        form=tk.Frame(win,background=palette["panel"],padx=12,pady=12)
+        form.pack(fill="x",padx=14,pady=(10,5))
+        for axis,var in zip("XYZ",self._editor_xyz_vars):
+            col=tk.Frame(form,background=palette["panel"])
+            col.pack(side="left",fill="x",expand=True,padx=3)
+            self._label(col,axis+" (m)",size=9).pack(anchor="w")
+            tk.Entry(col,textvariable=var,font=("Consolas",11),
+                background=palette["input"],foreground=palette["text"],
+                insertbackground=palette["text"],width=10).pack(fill="x",ipady=5)
+        actions=tk.Frame(win,background=palette["background"])
+        actions.pack(fill="x",padx=14,pady=(5,14))
+        for title,callback in (
+            ("Apply pose",self._editor_apply),
+            ("Undo",self._editor_undo),
+            ("Redo",self._editor_redo),
+            ("Refresh",self._editor_refresh),
+        ):
+            self._button(actions,title,callback,
+                accent=title=="Apply pose").pack(side="left",expand=True,
+                  fill="x",padx=3)
+        tree.bind("<<TreeviewSelect>>",self._editor_choose)
+        self._editor_refresh()
+
+    def _close_scene_explorer(self):
+        if self._editor_window is not None:
+            self._editor_window.destroy()
+            self._editor_window=None
+
+    def _editor_refresh(self):
+        if self._editor_window is None or not self._editor_window.winfo_exists():
+            return
+        tree=self._editor_tree
+        selected=self._editor_selected
+        for item in tree.get_children():
+            tree.delete(item)
+        groups={}
+        for item in self._scene_editor.entities():
+            group=item["group"]
+            if group not in groups:
+                groups[group]=tree.insert("","end",
+                    iid="group:"+group,text=group,open=True)
+            xyz=", ".join(f"{v:.2f}" for v in item["position_m"])
+            tree.insert(groups[group],"end",iid="asset:"+item["asset_id"],
+                text=item["asset_id"],
+                values=(item.get("asset_class","reference"),xyz),
+                tags=("editable" if item["editable"] else "locked",))
+        if selected and tree.exists("asset:"+selected):
+            tree.selection_set("asset:"+selected)
+            self._editor_choose()
+
+    def _editor_choose(self,event=None):
+        selections=self._editor_tree.selection()
+        if not selections or not selections[0].startswith("asset:"):
+            return
+        selected=selections[0].split(":",1)[1]
+        self._editor_selected=selected
+        entity=next((e for e in self._scene_editor.entities()
+                     if e["asset_id"]==selected),None)
+        if entity is not None:
+            for var,value in zip(self._editor_xyz_vars,entity["position_m"]):
+                var.set(f"{value:.6f}")
+            if not entity["editable"]:
+                self._status(f"{selected} locked: {entity.get('reason','not editable')}")
+            else:
+                self._status(
+                    f"Selected actual scene assembly {selected}. "
+                    f"Edit XYZ for layout authoring, not for live robot actuation."
+                )
+
+    def _editor_apply(self):
+        if not self._editor_selected:
+            raise ValueError("Select a scene entity in the hierarchy")
+        self.running=False
+        self._active_plan=None
+        pos=[float(var.get()) for var in self._editor_xyz_vars]
+        change=self._scene_editor.move(self._editor_selected,pos)
+        self._status(
+            f"Authored {change['asset_id']} at "
+            f"{', '.join(f'{x:.3f}' for x in change['position_m'])} m. "
+            "This is reversible scene editing, not a physical trajectory."
+        )
+        self._editor_refresh()
+
+    def _editor_undo(self):
+        self.running=False
+        self._active_plan=None
+        change=self._scene_editor.undo()
+        self._status(f"Reverted scene transform: {change['asset_id']}")
+        self._editor_refresh()
+
+    def _editor_redo(self):
+        self.running=False
+        self._active_plan=None
+        change=self._scene_editor.redo()
+        self._status(f"Restored scene transform: {change['asset_id']}")
+        self._editor_refresh()
 
     def export_state(self):
         path = self.filedialog.asksaveasfilename(
@@ -929,6 +1203,12 @@ class DesktopStudio:
                 self.root.after_cancel(self._tick_id)
             except Exception:
                 pass
+        if self._editor_window is not None:
+            try:
+                self._editor_window.destroy()
+            except Exception:
+                pass
+            self._editor_window=None
         self.world.close()
         try:
             self.root.destroy()

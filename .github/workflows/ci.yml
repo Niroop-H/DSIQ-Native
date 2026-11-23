@@ -50,6 +50,11 @@ jobs:
           python -m dsiq_native environment-usd logistics_bay build/reference-scenes/logistics.usda
           python -m dsiq_native machine-create build/reference-scenes/user-gantry --name review_gantry
           python -m dsiq_native machine-verify build/reference-scenes/user-gantry
+          python -m dsiq_native workcell-new build/reference-scenes/reference.workcell.json --id review_robotics_cell --name "Unqualified CI reference cell" --manifest build/reference-scenes/user-gantry/machine.manifest.json
+          python -m dsiq_native workcell-inspect build/reference-scenes/reference.workcell.json
+          python -m dsiq_native workcell-audit build/reference-scenes/reference.workcell.json --steps 24
+          python -m dsiq_native workcell-catalog-build build/reference-scenes/catalog.json build/reference-scenes/reference.workcell.json
+          python -m dsiq_native workcell-catalog build/reference-scenes/catalog.json --simulate --steps 24
           python -m dsiq_native usd-workspace-new build/reference-scenes/layered-project
           python -m dsiq_native usd-workspace-inspect build/reference-scenes/layered-project
           python -m dsiq_native dataset-generate build/reference-scenes/synthetic --frames 2 --seed 1007 --width 64 --height 48 --boxes 2 --steps 24

@@ -28,6 +28,36 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 
 **Not yet built/qualified:** standalone RTX rendering integration, validated PhysX articulation simulation on the RTX 3050, MJCF import, production-qualified ROS 2 bridges, industry-calibrated robot dynamics, RTX-accurate RGB/depth sensors, realistic sensor noise calibration, detailed approved OEM CAD libraries, and production Windows installers. Actual CPU Bullet RGB-D/LiDAR and verified local URDF inspection/import exist, but they are not RTX or physically calibrated replacements. These are explicit milestones, not hidden stubs labeled complete.
 
+## Universal workcell qualification framework and native scene inspector
+
+DSIQ now includes a shared quality gate for **every registered robotic
+workcell**, rather than a special-purpose acceptance rule for one showcase
+machine. Each workcell must declare exact roles and evidence in ten
+categories: CAD, inertia, kinematics, contact, actuators, sensors, safety,
+materials, resource performance and reproducibility.
+
+~~~powershell
+# Use a legally sourced, validated URDF inside the same project folder.
+python -m dsiq_native workcell-new cell_a.workcell.json --id cell_a_robotics --name "Cell A" --manifest machine/machine.manifest.json
+python -m dsiq_native workcell-inspect cell_a.workcell.json
+python -m dsiq_native workcell-audit cell_a.workcell.json --steps 120
+python -m dsiq_native workcell-catalog-build catalog.json cell_a.workcell.json cell_b.workcell.json
+python -m dsiq_native workcell-catalog catalog.json --simulate
+~~~
+
+The batch catalog checks **every** referenced workcell and uses isolated
+Bullet clients to bound system RAM. A real GUI scene hierarchy now supports
+selecting equipment, editing live Bullet layout transforms and Undo/Redo.
+Workcell projects can be opened transactionally and saved as new versions.
+An authoring transform is explicitly not a physical robot movement.
+
+**Important:** Reference-only and incomplete projects are reported as such.
+Even when files, source hashes and simulated motors pass, the software
+does not claim industrial certification. Independent equipment review
+and hardware validation are required for every model.
+
+See [Universal Workcell Quality Standard](docs/WORKCELL_QUALITY_STANDARD.md).
+
 ## Extended contact physics and read-only ROS 2 integration
 
 DSIQ now has additional numeric acceptance experiments for

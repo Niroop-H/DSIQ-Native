@@ -209,6 +209,37 @@ def build_parser() -> argparse.ArgumentParser:
     rs.add_argument("--steps-per-frame",type=int,default=12)
     rs.add_argument("--lidar-rays",type=int,default=36)
     rs.add_argument("--range-m",type=float,default=5.)
+    wnew=sub.add_parser(
+        "workcell-new",
+        help="Create portable reference workcell project from a rights-verified URDF"
+    )
+    wnew.add_argument("project_file")
+    wnew.add_argument("--id",required=True)
+    wnew.add_argument("--name",required=True)
+    wnew.add_argument("--manifest",required=True)
+    wnew.add_argument("--environment",default="robotics_cell",
+                      choices=("open","robotics_cell","cleanroom_bay","logistics_bay"))
+    winsp=sub.add_parser(
+        "workcell-inspect",help="Apply the same ten engineering evidence gates to one workcell"
+    )
+    winsp.add_argument("project_file")
+    waudit=sub.add_parser(
+        "workcell-audit",help="Inspect workcell and actually simulate all of its URDF assemblies"
+    )
+    waudit.add_argument("project_file")
+    waudit.add_argument("--steps",type=int,default=120)
+    catalog_new=sub.add_parser(
+        "workcell-catalog-build",
+        help="Build a portable registry of ALL supplied workcell project files"
+    )
+    catalog_new.add_argument("catalog_file")
+    catalog_new.add_argument("workcells",nargs="+")
+    catalog=sub.add_parser(
+        "workcell-catalog",help="Audit every workcell in a hashed multi-workcell catalog"
+    )
+    catalog.add_argument("catalog_file")
+    catalog.add_argument("--simulate",action="store_true")
+    catalog.add_argument("--steps",type=int,default=120)
     return p
 
 
@@ -217,7 +248,35 @@ def main(argv: list[str] | None = None) -> int:
     try:
         command = args.command
         code = 0
-        if command == "physics-extended":
+        if command == "workcell-new":
+            from .workcell_acceptance import create_workcell
+            result=create_workcell(
+                args.project_file,workcell_id=args.id,name=args.name,
+                manifest=args.manifest,environment=args.environment,
+            )
+        elif command == "workcell-inspect":
+            from .workcell_acceptance import inspect_workcell
+            result=inspect_workcell(args.project_file)
+            code=0 if not result["errors"] else 3
+        elif command == "workcell-audit":
+            from .workcell_acceptance import audit_workcell
+            result=audit_workcell(args.project_file,steps=args.steps)
+            code=0 if result["runtime_passed"] else 3
+        elif command == "workcell-catalog-build":
+            from .workcell_acceptance import create_catalog
+            result=create_catalog(args.catalog_file,args.workcells)
+        elif command == "workcell-catalog":
+            from .workcell_acceptance import audit_catalog
+            result=audit_catalog(
+                args.catalog_file,simulate=args.simulate,steps=args.steps
+            )
+            code=(
+                0 if (
+                    result["all_source_integrity_valid"] and
+                    (not args.simulate or result["all_runtime_checks_passed"])
+                ) else 3
+            )
+        elif command == "physics-extended":
             from .physics_fidelity import run_extended_physics_suite
             result=run_extended_physics_suite()
             code=0 if result["passed"] else 3

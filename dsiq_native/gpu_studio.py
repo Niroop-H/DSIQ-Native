@@ -763,8 +763,11 @@ def benchmark_exact_geometry_instances(*, copies: int=4, frames: int=48,
     This does not fabricate a factory, prove VRAM savings, or use Hydra.
     """
     import math
-    if type(copies) is not int or not 2<=copies<=24:
-        raise ValueError("Geometry reuse benchmark requires 2..24 source machines")
+    if type(copies) is not int or not 2<=copies<=4:
+        raise ValueError(
+            "Geometry reuse benchmark requires 2..4 source machines; "
+            "BulletPlayground intentionally limits imported robots to four"
+        )
     app=GPUStudio(headless=True,width=width,height=height)
     try:
         from .machine_designer import MachineDesign, save_project

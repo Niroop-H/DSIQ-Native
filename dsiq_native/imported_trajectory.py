@@ -128,90 +128,239 @@ def plan_imported_trajectory(world, asset_id: str, goals: Mapping[str,float],
     )
 
 
-def execute_imported_trajectory(world, plan: ImportedTrajectory,
-                                *, record_every: int = 24) -> dict:
-    if type(record_every) is not int or not 1<=record_every<=500:
-        raise ValueError("Recorded sampling interval must be 1..500")
-    robot=world.imported_robots.get(plan.asset_id)
-    if not robot:
+
+def validate_execution_plan(world, plan: ImportedTrajectory) -> dict:
+    """Reject altered or decimated motor programs before issuing ANY commands.
+
+    Screening may use a decimated path; execution may not. The executable
+    path must be the original fixed-timestep quintic reference and must
+    match the CURRENT imported URDF and live start posture. This is a
+    software integrity gate, not a trusted-signature or safety certificate.
+    """
+    from .motion_collision import _validate_path_against_loaded_robot
+    robot = world.imported_robots.get(plan.asset_id)
+    if robot is None:
         raise ValueError("Planned URDF robot is no longer available")
-    if not math.isclose(plan.timestep_s,PHYSICS_DT,abs_tol=1e-12):
-        raise ValueError("Plan and Bullet timestep differ")
-    actual={j["name"]:j for j in robot["joints"] if j["lower"] is not None}
-    if tuple(actual)!=plan.names:
-        raise ValueError("Robot articulation changed since planning")
-    if any(actual[name]["joint_index"]!=index
-           for name,index in zip(plan.names,plan.joint_indices)):
-        raise ValueError("Motor joint indices changed since planning")
-    now=tuple(float(world.p.getJointState(
-        robot["body_id"],idx,physicsClientId=world.client
-    )[0]) for idx in plan.joint_indices)
-    if max(abs(x-y) for x,y in zip(now,plan.start))>1e-3:
-        raise ValueError("Robot measured start state has changed; replan before execution")
-    worst=0.
-    errors=[]
-    records=[]
-    high_contacts=0
-    violations=[]
-    max_measured_speed={name:0. for name in plan.names}
-    max_measured_effort={name:0. for name in plan.names}
-    speed_violations=[]
-    effort_violations=[]
-    for i,targets in enumerate(plan.samples[1:],1):
-        for name,target in zip(plan.names,targets):
-            world.command_imported_joint(plan.asset_id,name,target)
-        world.p.stepSimulation(physicsClientId=world.client)
-        world.step_index+=1
-        states=tuple(world.p.getJointState(
-            robot["body_id"],idx,physicsClientId=world.client
-        ) for idx in plan.joint_indices)
-        current=tuple(float(state[0]) for state in states)
-        for name,state in zip(plan.names,states):
-            measured_speed=abs(float(state[1]))
-            measured_effort=abs(float(state[3]))
-            if not math.isfinite(measured_speed) or not math.isfinite(measured_effort):
-                raise ArithmeticError("Bullet motor feedback contains nonfinite velocity/effort")
-            max_measured_speed[name]=max(max_measured_speed[name],measured_speed)
-            max_measured_effort[name]=max(max_measured_effort[name],measured_effort)
-            limits=actual[name]
-            if measured_speed>limits["max_velocity"]*1.05+.001:
+    _validate_path_against_loaded_robot(world, robot, plan)
+    if not math.isclose(plan.timestep_s, PHYSICS_DT, rel_tol=0., abs_tol=1e-12):
+        raise ValueError("Execution plan and Bullet fixed timestep differ")
+    n = len(plan.samples) - 1
+    if n < 1 or n + 1 > MAX_STEPS or not math.isclose(
+        plan.duration_s, n * PHYSICS_DT, rel_tol=0., abs_tol=1e-9
+    ):
+        raise ValueError("Execution plan sample count, duration and timestep disagree")
+    for i, row in enumerate(plan.samples):
+        u = i / n
+        blend = 10*u**3 - 15*u**4 + 6*u**5
+        for q, start, goal in zip(row, plan.start, plan.goal):
+            expected = start + (goal-start)*blend
+            if abs(q-expected) > 2e-8 * max(1., abs(start), abs(goal)):
+                raise ValueError("Execution trajectory differs from authorized quintic samples")
+    for start, goal, vmax in zip(
+        plan.start, plan.goal, plan.declared_speed_limits
+    ):
+        if 1.875 * abs(goal-start) / plan.duration_s > vmax + 1e-9:
+            raise ValueError("Execution reference path exceeds URDF speed limit")
+    return {
+        "fixed_step_quintic_integrity_checked": True,
+        "all_samples_match_plan": True,
+        "actual_robot_start_state_checked": True,
+        "source_urdf_velocity_ratings_checked": True,
+        "safety_rated": False,
+    }
+
+
+def _request_simulation_brake(world, plan, robot) -> bool:
+    """Request zero joint velocity in Bullet after a software fault.
+
+    This is an ordinary physics-motor command. It is NOT a protective stop
+    or a hardware E-stop, and the state may still coast or move under load.
+    """
+    p = world.p
+    for name, index in zip(plan.names, plan.joint_indices):
+        j = next(j for j in robot["joints"] if j["name"] == name)
+        p.setJointMotorControl2(
+            robot["body_id"], index, p.VELOCITY_CONTROL,
+            targetVelocity=0., force=float(j["max_effort"]),
+            physicsClientId=world.client,
+        )
+    return True
+
+
+def execute_imported_trajectory(world, plan: ImportedTrajectory,
+                                *, record_every: int = 24,
+                                runtime_clearance_m: float | None = None,
+                                max_tracking_error: float | None = None) -> dict:
+    """Execute verified quintic targets with a post-step simulation fault monitor.
+
+    Monitors velocity, effort and hard travel limits from the imported URDF,
+    plus optional real-time geometric clearance and user-set tracking error.
+    Any violation aborts future target commands and requests a Bullet brake.
+    The violating simulation step has ALREADY occurred; this cannot protect
+    humans or real actuators, nor provide continuous swept collision safety.
+    """
+    if type(record_every) is not int or not 1 <= record_every <= 500:
+        raise ValueError("Recorded sampling interval must be 1..500")
+    if runtime_clearance_m is not None and (
+        type(runtime_clearance_m) not in (int,float) or
+        not math.isfinite(runtime_clearance_m) or
+        not 0. <= runtime_clearance_m <= .05
+    ):
+        raise ValueError("Runtime clearance must be a finite value in [0,0.05] m")
+    if max_tracking_error is not None and (
+        type(max_tracking_error) not in (int,float) or
+        not math.isfinite(max_tracking_error) or
+        not 0 < max_tracking_error <= 1.
+    ):
+        raise ValueError("Tracking-error threshold must be finite in (0,1]")
+    verification = validate_execution_plan(world, plan)
+    robot = world.imported_robots[plan.asset_id]
+    actual = {
+        j["name"]:j for j in robot["joints"] if j["lower"] is not None
+    }
+    body = robot["body_id"]
+    p = world.p
+    cid = world.client
+    worst = 0.
+    errors = []
+    records = []
+    high_contacts = 0
+    violations = []
+    max_measured_speed = {name:0. for name in plan.names}
+    max_measured_effort = {name:0. for name in plan.names}
+    speed_violations = []
+    effort_violations = []
+    abort_reason = None
+    post_step_neutralization_requested = False
+    current = tuple(plan.start)
+    completed_steps = 0
+    monitored_contacts = 0
+    for i, targets in enumerate(plan.samples[1:], 1):
+        # The preflight above is executed before the first motor command.
+        for name, target in zip(plan.names, targets):
+            world.command_imported_joint(plan.asset_id, name, target)
+        p.stepSimulation(physicsClientId=cid)
+        world.step_index += 1
+        completed_steps += 1
+        states = tuple(
+            p.getJointState(body, idx, physicsClientId=cid)
+            for idx in plan.joint_indices
+        )
+        current = tuple(float(state[0]) for state in states)
+        readings = [
+            float(value) for state in states
+            for value in (state[0], state[1], state[3])
+        ]
+        if not all(math.isfinite(value) for value in readings):
+            _request_simulation_brake(world, plan, robot)
+            raise ArithmeticError(
+                "Bullet produced nonfinite joint feedback; simulation motor targets halted"
+            )
+        for name, state in zip(plan.names, states):
+            measured_speed = abs(float(state[1]))
+            measured_effort = abs(float(state[3]))
+            max_measured_speed[name] = max(
+                max_measured_speed[name], measured_speed
+            )
+            max_measured_effort[name] = max(
+                max_measured_effort[name], measured_effort
+            )
+            limits = actual[name]
+            if measured_speed > limits["max_velocity"]*1.05 + .001:
                 speed_violations.append({
-                    "step":i,"name":name,"measured_speed":measured_speed,
+                    "step":i, "name":name,
+                    "measured_speed":measured_speed,
                     "declared_limit":limits["max_velocity"],
                 })
-            if measured_effort>limits["max_effort"]*1.05+.001:
+            if measured_effort > limits["max_effort"]*1.05 + .001:
                 effort_violations.append({
-                    "step":i,"name":name,"measured_effort":measured_effort,
+                    "step":i, "name":name,
+                    "measured_effort":measured_effort,
                     "declared_limit":limits["max_effort"],
                 })
-        if any(not math.isfinite(x) for x in current):
-            raise ArithmeticError("Bullet motor yielded nonfinite state")
-        error=max(abs(ref-got) for ref,got in zip(targets,current))
+        error = max(abs(ref-got) for ref, got in zip(targets,current))
         errors.append(error)
-        worst=max(worst,error)
-        contacts=len(world.p.getContactPoints(
-            bodyA=robot["body_id"],physicsClientId=world.client,
+        worst = max(worst,error)
+        contacts = len(p.getContactPoints(
+            bodyA=body,physicsClientId=cid,
         ))
-        high_contacts=max(high_contacts,contacts)
+        high_contacts = max(high_contacts, contacts)
         for name,q in zip(plan.names,current):
-            j=actual[name]
-            if j["lower"]<=j["upper"] and (
-                q<j["lower"]-.01 or q>j["upper"]+.01
+            j = actual[name]
+            if j["lower"] <= j["upper"] and (
+                q < j["lower"]-.01 or q > j["upper"]+.01
             ):
-                violations.append({"step":i,"name":name,"position":q})
-        if i % record_every==0 or i==len(plan.samples)-1:
+                violations.append({
+                    "step":i,"name":name,"position":q,
+                })
+        if runtime_clearance_m is not None:
+            # This queries ACTUAL Bullet state AFTER a step and sees moving
+            # obstacles that could differ from the preflight's static scene.
+            # It cannot prevent first contact, and self-collision is excluded.
+            for k in range(p.getNumBodies(physicsClientId=cid)):
+                other = p.getBodyUniqueId(k,physicsClientId=cid)
+                if other == body:
+                    continue
+                points = p.getClosestPoints(
+                    bodyA=body, bodyB=other,
+                    distance=max(float(runtime_clearance_m),1e-6),
+                    physicsClientId=cid,
+                )
+                for cp in points:
+                    link = int(cp[3])
+                    separation = float(cp[8])
+                    if other == world.ground and link == -1:
+                        continue  # Fixed root on the support plane
+                    if not math.isfinite(separation):
+                        abort_reason = "NONFINITE_CONTACT_DISTANCE"
+                        break
+                    if separation <= runtime_clearance_m:
+                        monitored_contacts += 1
+                        abort_reason = (
+                            "POST_STEP_OBSTACLE_CLEARANCE_VIOLATION"
+                            f" body={other} link={link} distance={separation:.9g}"
+                        )
+                        break
+                if abort_reason:
+                    break
+        if speed_violations:
+            abort_reason = abort_reason or "SOURCE_JOINT_VELOCITY_VIOLATION"
+        if effort_violations:
+            abort_reason = abort_reason or "SOURCE_MOTOR_EFFORT_VIOLATION"
+        if violations:
+            abort_reason = abort_reason or "SOURCE_JOINT_TRAVEL_VIOLATION"
+        if max_tracking_error is not None and error > max_tracking_error:
+            abort_reason = abort_reason or "TRACKING_ERROR_THRESHOLD_VIOLATION"
+        if i % record_every == 0 or i == len(plan.samples)-1 or abort_reason:
             records.append({
                 "step":i,"time_s":i*PHYSICS_DT,
                 "measured_joint_states":dict(zip(plan.names,current)),
                 "reference_joint_states":dict(zip(plan.names,targets)),
                 "max_tracking_error":error,
             })
-    ordered=sorted(errors)
-    p95=ordered[math.ceil(.95*len(ordered))-1] if ordered else 0.
+        if abort_reason:
+            post_step_neutralization_requested = _request_simulation_brake(
+                world,plan,robot,
+            )
+            break  # Do not command any later samples
+    ordered = sorted(errors)
+    p95 = ordered[math.ceil(.95*len(ordered))-1] if ordered else 0.
+    completed = abort_reason is None and completed_steps == len(plan.samples)-1
     return {
         "asset_id":plan.asset_id,
-        "simulated_steps":len(plan.samples)-1,
+        "execution_preflight":verification,
+        "simulated_steps":completed_steps,
+        "planned_steps":len(plan.samples)-1,
         "duration_s":plan.duration_s,
+        "actual_simulated_duration_s":completed_steps*PHYSICS_DT,
+        "runtime_monitor_passed":completed,
+        "trajectory_completed":completed,
+        "runtime_abort_reason":abort_reason,
+        "post_step_neutralization_requested":post_step_neutralization_requested,
+        "post_step_clearance_threshold_m":runtime_clearance_m,
+        "post_step_obstacle_contact_events":monitored_contacts,
+        "max_tracking_error_threshold":max_tracking_error,
+        "monitor_type":"POST_STEP_SOFTWARE_MONITOR_NOT_HARDWARE_SAFETY",
         "max_joint_tracking_error":worst,
         "p95_joint_tracking_error":p95,
         "final_actual":dict(zip(plan.names,current)),
@@ -227,7 +376,12 @@ def execute_imported_trajectory(world, plan: ImportedTrajectory,
         "source_velocity_limits_used":True,
         "collision_free_certified":False,
         "continuous_collision_detection_qualified":False,
+        "self_collision_qualified":False,
         "torque_acceleration_qualified":False,
         "physical_hardware_qualified":False,
-        "note":"Real Bullet measured motor tracking, not manufacturer motion qualification.",
+        "note":(
+            "Post-step software monitor halts further simulated target commands "
+            "and requests a Bullet brake on faults. It cannot prevent the first "
+            "violating step or act as a physical protective stop."
+        ),
     }

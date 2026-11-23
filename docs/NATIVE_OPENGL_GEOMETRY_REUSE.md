@@ -10,18 +10,20 @@ Now, an imported CAD visual is eligible for **immutable GPU draw-geometry buffer
 
 Each imported machine retains a distinct source-verified URDF manifest, separate original Bullet rigid/articulated body, own link nodes and parent transforms. No part is removed, no geometry is simplified or merged, and no simulation state is reused. A distinct `GeomNode` is created for each rendered visual, referring to the same underlying immutable Panda3D `Geom` when its exact content matches an existing buffer.
 
+The integrated Bullet workcell currently enforces **four imported robots maximum**. This benchmark deliberately honors that bound; exceeding it fails closed rather than quietly increasing the robot limit. Larger graphics-only scene scaling is a separate future stress-test target.
+
 ## Test on a real display or runner
 
 Install graphics and robotics dependencies:
 
 ```powershell
 python -m pip install -e ".[gpu]"
-python -m dsiq_native gpu-instancing-benchmark --copies 6 --frames 120 --width 1280 --height 720 --screenshot instanced-source-gantries.png > instancing-report.json
+python -m dsiq_native gpu-instancing-benchmark --copies 4 --frames 120 --width 1280 --height 720 --screenshot instanced-source-gantries.png > instancing-report.json
 ```
 
 A successful report is derived from actual GUI-rasterized OpenGL frames. It contains source-authored gantry instances (not OEM equipment), distinct imported Bullet body count, source triangle instances, number of unique retained `Geom` buffers, reused triangle instances, actual frame timing/FPS, and OpenGL driver where available. If hardware permits, the existing `gpu-benchmark --require-nvidia --min-fps 30` remains the separate genuine on-device test.
 
-**CI:** `.github/workflows/ci.yml` runs a Mesa/Xvfb scene containing six separate validated reference gantries, asserts six **distinct Bullet bodies**, verifies precise GPU buffer reuse and saves a real framebuffer capture and JSON timing report in the `dsiq-native-opengl-software-ci` artifact.
+**CI:** `.github/workflows/ci.yml` runs a Mesa/Xvfb scene containing four separate validated reference gantries, asserts four **distinct Bullet bodies**, verifies precise GPU buffer reuse and saves a real framebuffer capture and JSON timing report in the `dsiq-native-opengl-software-ci` artifact.
 
 ## What metrics mean
 

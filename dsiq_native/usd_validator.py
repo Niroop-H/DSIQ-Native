@@ -76,7 +76,7 @@ def validate_usd_stage(path: str | Path, *, max_prims: int=MAX_PRIMS,
         "materials":0,"mesh_without_material":0,"cameras":0,
         "physics_scenes":0,"rigid_bodies":0,"colliders":0,
         "instanced_prims":0,"unloaded_payload_prims":0,
-        "time_sampled_meshes":0,
+        "time_sampled_meshes":0,"degenerate_mesh_faces":0,
     }
     for prim in stage.TraverseAll():
         if not prim.IsActive() or not prim.IsDefined():
@@ -134,17 +134,55 @@ def validate_usd_stage(path: str | Path, *, max_prims: int=MAX_PRIMS,
                for x in points):
             issue("error","MESH_NONFINITE_POINTS",key,
                   "Mesh has nonfinite or invalid vertex coordinates")
-        if any(type(int(n)) is not int or int(n)<3 for n in counts):
+        counts_valid=all(int(n)>=3 for n in counts)
+        total_indices=sum(int(n) for n in counts)
+        indices_valid=all(0<=int(n)<npts for n in indices)
+        if not counts_valid:
             issue("error","MESH_FACE_DEGENERATE",key,
                   "Mesh face counts must be at least three")
-        elif sum(int(n) for n in counts)!=ninds:
+        if total_indices!=ninds:
             issue("error","MESH_TOPOLOGY_COUNT",key,
                   "Face counts do not equal face vertex index array length")
-        else:
-            stats["triangles_estimated"]+=sum(int(n)-2 for n in counts)
-        if any(int(n)<0 or int(n)>=npts for n in indices):
+        if not indices_valid:
             issue("error","MESH_INDEX_BOUNDS",key,
                   "Mesh face references a nonexistent vertex index")
+        if counts_valid and total_indices==ninds:
+            stats["triangles_estimated"]+=sum(int(n)-2 for n in counts)
+        # A nonempty, index-valid topology can still contain zero-area
+        # triangle faces or a face that repeats its own vertex index.
+        # Compare triangle area RELATIVE to its own longest edge to
+        # accommodate real metre, micrometre and semiconductor scales.
+        if counts_valid and total_indices==ninds and indices_valid:
+            offset=0
+            invalid_faces=0
+            for face_count in counts:
+                face=[int(x) for x in indices[offset:offset+int(face_count)]]
+                offset+=int(face_count)
+                if len(set(face))!=len(face):
+                    invalid_faces+=1
+                    continue
+                if len(face)!=3:
+                    continue  # general polygon triangulation is deferred
+                v0,v1,v2=(points[i] for i in face)
+                edges=[tuple(float(v1[k]-v0[k]) for k in range(3)),
+                       tuple(float(v2[k]-v0[k]) for k in range(3))]
+                ab,ac=edges
+                bc=tuple(ac[k]-ab[k] for k in range(3))
+                max_edge_sq=max(sum(x*x for x in edge)
+                                for edge in (ab,ac,bc))
+                cross=(ab[1]*ac[2]-ab[2]*ac[1],
+                       ab[2]*ac[0]-ab[0]*ac[2],
+                       ab[0]*ac[1]-ab[1]*ac[0])
+                norm_cross_sq=sum(x*x for x in cross)
+                if max_edge_sq==0 or (
+                    math.isfinite(max_edge_sq) and math.isfinite(norm_cross_sq)
+                    and norm_cross_sq <= (1e-12*max_edge_sq)**2
+                ):
+                    invalid_faces+=1
+            if invalid_faces:
+                stats["degenerate_mesh_faces"]+=invalid_faces
+                issue("error","MESH_DEGENERATE_GEOMETRY",key,
+                      f"{invalid_faces} mesh faces have repeated vertices or near-zero triangle area")
         if mesh.GetPointsAttr().GetNumTimeSamples()>0:
             stats["time_sampled_meshes"]+=1
             issue("warning","MESH_ANIMATED_SAMPLE_ONLY",key,

@@ -112,6 +112,12 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Save actual TinyRenderer CPU RGBA camera PNG")
     bullet.add_argument("--depth-npz", type=str, default=None,
                         help="Save metric depth and segmentation arrays")
+    imu=sub.add_parser(
+        "imu-sample",
+        help="Measure real Bullet link COM velocity and derived specific force across physics steps"
+    )
+    imu.add_argument("--steps",type=int,default=24)
+    imu.add_argument("--link",type=int,default=5)
     studio = sub.add_parser(
         "studio", help="Launch DSIQ-branded native CPU robotics GUI; no NVIDIA Kit needed"
     )
@@ -986,6 +992,26 @@ def main(argv: list[str] | None = None) -> int:
                 camera_width=args.width, camera_height=args.height,
                 fps_limit=args.fps,
             )
+        elif command == "imu-sample":
+            from .bullet_runtime import BulletPlayground,BulletSettings
+            from .inertial_sensor import IdealBulletInertialProbe
+            if type(args.steps) is not int or not 1<=args.steps<=24000:
+                raise ValueError("IMU sample steps must be 1..24000")
+            with BulletPlayground(BulletSettings(payload_count=0)) as world:
+                probe=IdealBulletInertialProbe(world)
+                start=probe.sample(link_index=args.link)
+                world.command_joints((.1,.2,.15,.0,.1,.0))
+                world.step(args.steps)
+                end=probe.sample(link_index=args.link)
+                if not end["acceleration_is_valid"]:
+                    raise RuntimeError("Real Bullet IMU velocity-difference sample is invalid")
+                result={
+                    "schema":"dsiq-ideal-imu-acceptance-v1",
+                    "initial_sample":start,
+                    "advanced_sample":end,
+                    "physics_steps":world.step_index,
+                    "physical_sensor_calibrated":False,
+                }
         elif command == "bullet-run":
             from pathlib import Path
             from .bullet_runtime import BulletPlayground, BulletSettings

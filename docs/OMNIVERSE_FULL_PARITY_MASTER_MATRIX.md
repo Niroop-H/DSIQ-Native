@@ -18,7 +18,7 @@
 | --- | --- | --- |
 | 1. OpenUSD core | Stage, layers, references, variants, telemetry, scene profile | Payload streaming, composition correctness, purpose/visibility, instancing, collections, schema support; large multi-layer fixture |
 | 2. Asset validation and provenance | Source hash/rights checks, read-only USD mesh/physics/material validator and resolved local dependency-hash gate | Versioned pluggable validation rules, missing-asset path checks, remote namespace resolver; adversarial USD corpus |
-| 3. High-end renderer | Panda3D real OpenGL raster editor and TinyRenderer CPU | Hydra/Vulkan raster PBR + advanced materials and shadows, hardware ray tracing, denoising and path tracing; actual GPU traces |
+| 3. High-end renderer | Real Panda3D OpenGL editor/TinyRenderer CPU; exact source buffer reuse; separately verified 4-robot render and 301-visual, one-robot stress fixture with actual GL timing/p99; not qualified hardware | Hydra/Vulkan raster PBR, progressive LOD/streaming, high-quality materials/shadows, ray/path tracing, physically measured device throughput |
 | 4. Physics engines | C++ Bullet via PyBullet and optional real MuJoCo CPU adapter; independent solver reports | Newton, PhysX, GPU-batched solver, deformables/particles, stable friction/contact parity; matched numerical benchmarks |
 | 5. Robotics and articulated machines | Source-verified URDF and real CPU motor actuation, preflight limits, motion analysis | Collision-checked articulated planning, robot controllers and hardware-safe interfaces; real OEM measurements |
 | 6. Physical AI | Seeded Bullet reference policy and basic randomized environments | GPU/vector RL, imitation learning, policy export, task learning, sim-to-real benchmarks with held-out calibration |
@@ -32,7 +32,7 @@
 | 14. Streaming / thin clients | Existing native desktop and CLI | Remote interactive render sessions, authenticated WebRTC/WebGPU review, headless session lifecycle |
 | 15. Industrial digital twins | Evidence-qualified workcell schemas and source motion recording | OPC UA/MQTT, calibrated machine-specific HMI/process models, time-aligned telemetry, stale data handling |
 | 16. AI agents and scene workflows | Python APIs available for future automation | Constrained MCP tools, explainable scene authoring, safe execution approvals and reproducible agent benchmarks |
-| 17. System optimisation | Real OpenGL frames and read-only reuse profiler | USD deferred loading, memory paging, renderer/physics profiling, back-pressure and GPU tiers; matched FPS/VRAM/RAM |
+| 17. System optimisation | Measured OpenGL p50/p95/p99 wall frames, real-source Panda3D vertex/index buffer deduplication, reference-only CAD stress harness and read-only USD reuse profiler | USD deferred loading, process GPU VRAM/RAM attribution, culling, LOD, multigpu portability, back-pressure and matched target-hardware FPS/VRAM/RAM |
 | 18. Enterprise/security/release | SBOM, trust-gated updates, unsigned Windows previews, vulnerability audit | Signed production releases, third-party licence clearance, secure asset services, identity, audit and support |
 | 19. SimReady / content fidelity | Reference gantry, environment fixtures, source import | Real licensed multi-machine content library with calibrated materials/colliders, provenance and external acceptance |
 | 20. Multi-device computing | CPU baseline, one OpenGL graphics path | Vulkan-class AMD/Intel/NVIDIA GPU compatibility, RTX accelerated path and HPC scale; device matrix verified on hardware |

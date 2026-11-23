@@ -216,6 +216,8 @@ class MuJoCoPhysicsBackend:
                 "effort_measurement_semantics":"applied_generalized_force_not_motor_telemetry",
                 "source_max_velocity":j["max_velocity"],
                 "source_max_effort":j["max_effort"],
+                "source_lower":j["lower"],
+                "source_upper":j["upper"],
             })
         return {
             "asset_id":asset_id,"backend_id":self.capabilities.backend_id,

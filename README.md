@@ -8,6 +8,28 @@ DSIQ Native is a new, independent Windows-first industrial scene-authoring, simu
 
 The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Expansion) remains the **separate Web Edition** and is not modified by this project.
 
+## November 2026 evidence-first qualification upgrade
+
+The source-verified imported-URDF motor runner now rejects altered fixed-step
+quintic samples and can interrupt future Bullet motor targets upon observed
+runtime speed, effort, joint travel, tracking-error or obstacle-clearance
+faults. This is **post-step simulated monitoring**, not a hardware-rated
+protective stop. External robot-motion comparisons can require declared
+instrument standard uncertainties and consistent joint units. The new
+read-only OpenUSD scene profiler inventories exact local geometry reuse
+candidates without automatically merging or instancing assemblies.
+
+    python -m dsiq_native usd-scene-profile your-workcell.usda
+    python -m dsiq_native robot-urdf-motion machine.manifest.json --target actuator_x=0.03 --motion-limit-file reviewed-motion-limits.json --require-reviewed-limits --max-runtime-tracking-error 0.02
+    python -m dsiq_native physical-compare simulation-motion.json external-measurements.json --tolerance 0.005 --require-uncertainty --coverage-factor 2
+
+The numerical parameters above are **illustrative, not qualified OEM
+thresholds**. The independent industrial qualification score remains at
+its prior provisional baseline until physical and external evidence exists.
+
+See [research-linked engineering milestone](docs/ENGINEERING_QUALIFICATION_MILESTONE_2026_11.md)
+and [the 100-point qualification gates](docs/100_POINT_QUALIFICATION_PLAN.md).
+
 ## Additional cross-domain development: protected motion, visual USD, live DDS, learning and archive verification
 
 DSIQ now contains bounded adaptive joint-trajectory collision screening on

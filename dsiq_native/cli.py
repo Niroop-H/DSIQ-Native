@@ -408,6 +408,15 @@ def build_parser() -> argparse.ArgumentParser:
     reuse.add_argument("--width",type=int,default=800)
     reuse.add_argument("--height",type=int,default=600)
     reuse.add_argument("--screenshot",default=None)
+    visual_load=sub.add_parser(
+        "gpu-visual-load-benchmark",
+        help="Measure actual OpenGL CAD draw scaling with static source-verified visual copies (only one Bullet body)"
+    )
+    visual_load.add_argument("--copies",type=int,default=64)
+    visual_load.add_argument("--frames",type=int,default=36)
+    visual_load.add_argument("--width",type=int,default=800)
+    visual_load.add_argument("--height",type=int,default=600)
+    visual_load.add_argument("--screenshot",default=None)
     cad=sub.add_parser(
         "cad-usd-record",
         help="Export licensed hash-locked URDF triangle meshes with measured Bullet link animation"
@@ -557,6 +566,13 @@ def main(argv: list[str] | None = None) -> int:
             from .gpu_studio import benchmark_exact_geometry_instances
             result=benchmark_exact_geometry_instances(
                 copies=args.copies,frames=args.frames,
+                width=args.width,height=args.height,
+                screenshot=args.screenshot,
+            )
+        elif command == "gpu-visual-load-benchmark":
+            from .gpu_studio import benchmark_static_reference_scaling
+            result=benchmark_static_reference_scaling(
+                visual_copies=args.copies,frames=args.frames,
                 width=args.width,height=args.height,
                 screenshot=args.screenshot,
             )

@@ -64,8 +64,16 @@ class OfflineUpdateTests(unittest.TestCase):
             self.check("1.2.3")
         with self.assertRaisesRegex(ValueError,"rollback"):
             self.check("1.3.0")
-        self.bundle.write_bytes(b"tampered package with same file path")
+        original=self.bundle.read_bytes()
+        # Preserve the signed length: only SHA-256 can detect this edit.
+        modified=bytes([original[0]^1])+original[1:]
+        self.assertEqual(len(modified),len(original))
+        self.bundle.write_bytes(modified)
         with self.assertRaisesRegex(ValueError,"SHA256"):
+            self.check()
+        # A different-sized payload must be refused even before hashing.
+        self.bundle.write_bytes(original+b"trailer")
+        with self.assertRaisesRegex(ValueError,"byte length"):
             self.check()
 
     def test_fake_signature_or_other_signer_rejected(self):

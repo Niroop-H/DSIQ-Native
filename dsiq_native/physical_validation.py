@@ -38,6 +38,8 @@ def compare_measured_robot_motion(simulation_report: str|Path,
         raise ValueError("Measurement input exceeds 8 MiB budget")
     data=json.loads(simulated.read_text(encoding="utf8"))
     measured=json.loads(actual.read_text(encoding="utf8"))
+    if not isinstance(data,dict) or not isinstance(measured,dict):
+        raise ValueError("Simulation and external measurement roots must be JSON objects")
     if measured.get("schema")!="dsiq-external-joint-measurements-v1":
         raise ValueError("External measurement schema missing")
     if not measured.get("equipment_identifier") or not measured.get("instrument_identifier"):
@@ -45,10 +47,13 @@ def compare_measured_robot_motion(simulation_report: str|Path,
     if not isinstance(measured.get("instrument_calibration_reference"),str) or not measured["instrument_calibration_reference"].strip():
         raise ValueError("External instrument calibration reference required")
     source=data.get("tracking",data)
+    if not isinstance(source,dict):
+        raise ValueError("Simulation tracking data must be a JSON object")
     if source.get("runtime_monitor_passed") is False or source.get("trajectory_completed") is False:
         raise ValueError("Faulted or incomplete Bullet trajectory cannot support physical validation")
     samples=source.get("sampled_reports")
-    if not isinstance(samples,list) or len(samples)<3:
+    if (not isinstance(samples,list) or len(samples)<3 or
+            any(not isinstance(x,dict) for x in samples)):
         raise ValueError("At least three actual Bullet motion feedback samples required")
     time=[x.get("time_s") for x in samples]
     if any(type(t) not in (int,float) or not math.isfinite(t) for t in time):
@@ -117,7 +122,7 @@ def compare_measured_robot_motion(simulation_report: str|Path,
         t=row.get("time_s")
         value=row.get("measured_position")
         units=row.get("unit")
-        if name not in names or units not in ("m","rad"):
+        if not isinstance(name,str) or name not in names or units not in ("m","rad"):
             raise ValueError("External joint name or unit does not match declared simulator")
         if actual_urdf_units is not None and units!=actual_urdf_units[name]:
             raise ValueError("Observation joint unit disagrees with loaded source URDF")

@@ -47,6 +47,10 @@ jobs:
           python -m dsiq_native environment-render logistics_bay --png build/reference-scenes/logistics.png
           python -m dsiq_native environment-usd robotics_cell build/reference-scenes/robotics.usda
           python -m dsiq_native usd-validate build/reference-scenes/robotics.usda > build/reference-scenes/usd-engineering-audit.json
+          python -m unittest discover -s tests -p test_usd_dependency_audit.py -v
+          python -m dsiq_native usd-dependency-audit build/reference-scenes/robotics.usda --asset-root build/reference-scenes > build/reference-scenes/usd-dependency-audit.json
+          python -c 'import json; a=json.load(open("build/reference-scenes/usd-dependency-audit.json")); assert a["passed"] and a["dependency_file_count"]>=1 and len(a["verified_files"])==a["dependency_file_count"]'
+
           python -c 'import json; a=json.load(open("build/reference-scenes/usd-engineering-audit.json")); assert a["passed"] and a["stage_sha256_before"]==a["stage_sha256_after"] and a["counts"]["prims"]>0'
           python -m dsiq_native environment-usd cleanroom_bay build/reference-scenes/cleanroom.usda
           python -m dsiq_native environment-usd logistics_bay build/reference-scenes/logistics.usda

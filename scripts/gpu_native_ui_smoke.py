@@ -49,6 +49,16 @@ def run():
             app.set_grid_snap(0.)
             for _ in range(18):
                 app.base.taskMgr.step()
+            state=app.toggle_imu_overlay()
+            if not state["enabled"] or state["sensor_calibrated"]:
+                raise AssertionError("Real native IMU diagnostic overlay not enabled")
+            app.toggle_play()
+            for _ in range(28):
+                app.base.taskMgr.step()
+            app.toggle_play()
+            if "SPECIFIC FORCE [m/s2]" not in app._imu_label["text"]:
+                raise AssertionError("Actual on-screen physics IMU values did not update")
+            app.toggle_imu_overlay()
             if not app.base.win or not app.base.win.isValid():
                 raise AssertionError("Actual Panda3D GL editor window invalid")
             print({
@@ -58,6 +68,7 @@ def run():
                 "source_triangles":app._triangles,
                 "undo_restores_simulated_base_pose":True,
                 "native_metric_grid_snap_passed":True,
+                "native_live_bullet_imu_overlay_passed":True,
                 "RTX3050_hardware_test":False,
             })
         finally:

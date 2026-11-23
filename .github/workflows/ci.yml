@@ -264,6 +264,9 @@ jobs:
         run: |
           pwsh -NoProfile -File scripts/windows_production_gate.ps1 -Executable "dist\DSIQ-Native-GPU\DSIQ-Native-GPU.exe" -ExpectedSignerThumbprint "" | Out-File build\windows-gpu\release-blockers.json
           if ($LASTEXITCODE -eq 0) { throw "Unsigned GPU preview incorrectly qualified as production release" }
+          # GitHub pwsh runner propagates the last native-process exit code.
+          # An expected policy refusal is a PASS for this negative test.
+          $global:LASTEXITCODE = 0
           Write-Host "Unsigned preview correctly blocked from production"
       - name: Upload portable Windows native GPU editor preview
         uses: actions/upload-artifact@v4

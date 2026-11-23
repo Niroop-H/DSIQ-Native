@@ -55,6 +55,23 @@ class ReleaseAttestationTests(unittest.TestCase):
             self.assertTrue(checked["integrity_verified"])
             self.assertFalse(checked["authenticode_verified"])
 
+    def test_empty_pyinstaller_package_markers_are_hashed_not_rejected(self):
+        with TemporaryDirectory() as temp:
+            root=Path(temp)
+            archive=root/"python-bundle.zip"
+            with ZipFile(archive,"w",ZIP_DEFLATED) as f:
+                f.writestr("DSIQ-Native-GPU.exe",b"MZ"+b"\0"*50)
+                f.writestr("_internal/site-packages/empty_marker.pyi",b"")
+            attestation=root/"attestation.json"
+            created=make_attestation(archive,attestation)
+            self.assertEqual(created["member_count"],2)
+            data=__import__("json").loads(attestation.read_text())
+            self.assertEqual(
+                data["members"]["_internal/site-packages/empty_marker.pyi"]["sha256"],
+                __import__("hashlib").sha256(b"").hexdigest()
+            )
+            self.assertTrue(verify_attestation(archive,attestation)["integrity_verified"])
+
     def test_missing_executable_is_rejected(self):
         with TemporaryDirectory() as temp:
             root=Path(temp)

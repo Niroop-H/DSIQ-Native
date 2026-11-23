@@ -48,8 +48,13 @@ def _inspect_zip(file):
                 continue
             if name in members:
                 raise ValueError("Duplicate release ZIP path")
-            if not 0<info.file_size<=MAX_MEMBER:
-                raise ValueError("Invalid/oversized release member")
+            # PyInstaller and Panda3D legitimately ship zero-byte package
+            # markers. Empty files have a well-defined SHA256; keep hashing
+            # and duplicate-path checks, while rejecting oversized members.
+            if not 0<=info.file_size<=MAX_MEMBER:
+                raise ValueError(
+                    f"Invalid/oversized release member {name}: {info.file_size} bytes"
+                )
             total+=info.file_size
             if total>MAX_ARCHIVE*3:
                 raise ValueError("Release expansion budget exceeded")

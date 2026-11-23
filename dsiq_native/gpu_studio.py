@@ -117,6 +117,7 @@ class GPUStudio:
         self._last_perf=time.perf_counter()
         self._frame_count=0
         self._triangles=0
+        self._grid_snap_m=0.0
         self._status="Load a licensed URDF or a DSIQ workcell; data is not OEM qualified."
         self._make_lights()
         self._make_floor()
@@ -139,6 +140,7 @@ class GPUStudio:
             self.base.accept("control-y",self.redo)
             self.base.accept("space",self.toggle_play)
             self.base.accept("control-o",self.import_dialog)
+            self.base.accept("g",self.cycle_grid_snap)
         self.base.taskMgr.add(self._tick,"dsiq_opengl_workcell_tick")
 
     def _make_lights(self):
@@ -223,6 +225,12 @@ class GPUStudio:
                 scale=.7,command=self.move_selected,
                 extraArgs=list(delta),
             )
+        DirectButton(
+            text="GRID SNAP (G)",text_scale=.040,
+            frameColor=(.06,.13,.21,.92),text_fg=(.91,.95,1.,1.),
+            pos=(-1.03,0,.59),scale=.52,
+            command=self.cycle_grid_snap,
+        )
         self._refresh_hierarchy()
 
     def _refresh_hierarchy(self):
@@ -270,6 +278,9 @@ class GPUStudio:
         geometry=self._sources.get(asset)
         self._property["text"]=(
             "SOURCE CAD | "+asset+"\n"
+            +("GRID SNAP OFF\n" if self._grid_snap_m==0 else
+              "GRID SNAP {:.0f} mm\n".format(self._grid_snap_m*1000))
+
             +("X {:.3f}  Y {:.3f}  Z {:.3f} m\n".format(*pos))
             +str(geometry["triangle_count"] if geometry else 0)
             +" triangles | Not OEM qualified"
@@ -451,6 +462,24 @@ class GPUStudio:
         if path:
             self.load_workcell(path)
 
+    def set_grid_snap(self,step_m: float):
+        """Edit-time coordinate grid, never motor trajectory quantization."""
+        if isinstance(step_m,bool) or not isinstance(step_m,(int,float)):
+            raise ValueError("Grid snap step must be an allowed metric value")
+        if float(step_m) not in (0.0,.001,.005,.025,.1):
+            raise ValueError("Allowed grid snap: off, 1, 5, 25, 100 millimeters")
+        self._grid_snap_m=float(step_m)
+        self._status=("Grid snapping off" if step_m==0 else
+                      f"Grid snapping: {step_m*1000:.0f} mm")
+        self._refresh_properties()
+        return {"grid_snap_m":self._grid_snap_m,
+                "editor_only":True,"hardware_motion_changed":False}
+
+    def cycle_grid_snap(self):
+        choices=(0.0,.025,.005,.001)
+        current=choices.index(self._grid_snap_m) if self._grid_snap_m in choices else 0
+        return self.set_grid_snap(choices[(current+1)%len(choices)])
+
     def move_selected(self,x,y,z):
         if self._selected is None:
             return None
@@ -459,9 +488,17 @@ class GPUStudio:
         if entry is None:
             raise ValueError("Selected machine not present in physics")
         pos=entry["position_m"]
-        value=self.editor.move(self._selected,(
-            pos[0]+x,pos[1]+y,pos[2]+z
-        ))
+        if self._grid_snap_m:
+            step=self._grid_snap_m
+            deltas=(x,y,z)
+            target=tuple(
+                (round((pos[i] + math.copysign(step,delta))/step)*step)
+                if delta else float(pos[i])
+                for i,delta in enumerate(deltas)
+            )
+        else:
+            target=(pos[0]+x,pos[1]+y,pos[2]+z)
+        value=self.editor.move(self._selected,target)
         self._sync_poses()
         self._refresh_properties()
         return value
@@ -506,6 +543,8 @@ class GPUStudio:
                 "DSIQ NATIVE | OPENGL CAD EDITOR\n"
                 +selected+" | "+str(self._triangles)+" source triangles\n"
                 +("PAUSED" if self._paused else "BULLET LIVE")
+                +(" | SNAP OFF" if not self._grid_snap_m else
+                  " | SNAP {:.0f}mm".format(self._grid_snap_m*1000))
                 +" | NOT OEM CALIBRATED"
             )
         return task.cont

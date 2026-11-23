@@ -55,7 +55,7 @@ Kit extension is an interoperability adapter, not the main runtime.
 | Robotics | Bullet CPU physics, imported URDF actuators, bounded quintic motion, discrete collision checks, solver telemetry | Independent safety, CCD, OEM drive calibration, industrial control |
 | Physics backends | Source-verified real Bullet and optional real MuJoCo CPU adapters; isolated-world conformance and measured source-matched comparison | Newton, PhysX, full USD Physics import, physical calibration, GPU batches |
 | Editor | Native OpenGL/Panda3D window, hierarchy, move, undo/redo, 1/5/25 mm edit-grid snapping | Scalable PBR, mechanical mates/gizmos, RTX3050 hardware qualification |
-| Sensors/data | Bullet RGB-D/LiDAR reference and ROS 2 read-only transport | Calibrated optics, sensor uncertainty, safely commissioned controllers |
+| Sensors/data | Bullet RGB-D/LiDAR, actual link-derived ideal IMU-like kinematics and ROS 2 read-only transport | Calibrated optics/IMU bias, uncertainty, synchronized real hardware |
 | Supply chain | Secure dependency audit, offline signed-update verification, SBOM, CI preview binaries | Independent licence review, publisher signing, validated installers |
 | Industrial acceptance | Evidence inventory and qualification checklists | External machine calibration, risk assessment, customer pilot |
 
@@ -90,6 +90,17 @@ python -m dsiq_native usd-validate build/first-scene.usda
 ```
 
 Validation is bounded, read-only and checks default-time composed geometry; deferred payload contents, external rights and independent physical fidelity require further checks.
+
+## OpenUSD portable dependency and reference sensor checks
+
+```powershell
+python -m dsiq_native usd-dependency-audit build/first-scene.usda --asset-root build
+python -m dsiq_native imu-sample --steps 24 --link 5
+```
+
+The dependency auditor uses genuine Pixar OpenUSD dependency resolution and records approved local file hashes. It does **not** sandbox external USD resolver plug-ins, does not validate USDZ internal contents and cannot prove asset ownership. The inertial probe reads real Bullet link kinematics and finite differences across physics steps; it is **not** a calibrated hardware IMU.
+
+See [USD dependency audit](docs/USD_DEPENDENCY_AUDIT.md) and [CPU inertial probe](docs/SENSOR_INERTIAL_REFERENCE.md).
 
 ## Developer checks
 

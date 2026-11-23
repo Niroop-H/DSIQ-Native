@@ -43,7 +43,9 @@ If no suitable GPU exists or the kernel/model checks fail, this script exits wit
 
 ## GPU memory and scale strategy
 
-The GPU runtime has a conservatively budgeted number of float32 arrays and bounded total element count (default working-buffer budget 64 MiB; allowed 8–256 MiB). This estimate **does not include** the native Warp memory pool, compiled module/JIT cache, driver allocations, graphics buffers, shader/texture memory or operating-system use. Never interpret a software memory budget as guaranteed 4 GiB GPU safety.
+The GPU runtime has a conservatively budgeted number of float32 arrays and bounded total element count (default working-buffer budget 64 MiB; allowed 8–256 MiB). **Before CUDA allocation, DSIQ now queries the real selected Warp GPU's free and total device memory** and requires room for the estimated arrays **plus 256 MiB of unallocated headroom**. Unknown or inconsistent CUDA memory telemetry blocks the launch. The report preserves the free/total snapshot and its limitations.
+
+This preflight **does not** prevent all device out-of-memory failures: the estimate excludes the native Warp memory pool, compiled module/JIT cache, device runtime, graphics buffers, shader/texture memory and concurrent allocations by other applications. Never interpret a passing software budget or preflight as guaranteed 4 GiB GPU safety.
 
 Memory and performance tiers to benchmark on actual hardware: 4 GiB RTX3050/16 GiB system RAM as minimum, then 8/12/24 GiB and eventually multi-GPU. Measure driver and device identity, peak process memory with a supported profiler, p50/p95/p99 latency, sustained throughput, device memory errors and recovery, shader/compute contention, and actual workload accuracy on both NVIDIA and non-NVIDIA rendering targets where possible.
 

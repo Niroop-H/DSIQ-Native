@@ -575,6 +575,14 @@ def main(argv: list[str] | None = None) -> int:
                     motion_audit=audit_joint_motion(
                         plan,load_joint_limits(args.motion_limit_file),
                         expected_source_sha256=verified_manifest["geometry"]["sha256"],
+                        expected_joint_types={
+                            joint["name"]: (
+                                "prismatic" if joint["type"]==world.p.JOINT_PRISMATIC
+                                else "revolute"
+                            )
+                            for joint in world.imported_robots[imported["asset_id"]]["joints"]
+                            if joint["lower"] is not None
+                        },
                     )
                     if not motion_audit["all_documented_limits_passed"]:
                         raise ValueError(

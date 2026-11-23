@@ -29,7 +29,8 @@ def _positive(v,name):
 
 
 def audit_joint_motion(plan: ImportedTrajectory, source_limits: dict, *,
-                       expected_source_sha256: str | None = None) -> dict:
+                       expected_source_sha256: str | None = None,
+                       expected_joint_types: dict[str, str] | None = None) -> dict:
     """Check strict source-declared velocity, acceleration, and jerk envelopes.
 
     All actuated axes must have bounded, explicit limits. A missing axis
@@ -51,6 +52,12 @@ def audit_joint_motion(plan: ImportedTrajectory, source_limits: dict, *,
     limits=source_limits.get("joints")
     if not isinstance(limits,dict) or set(limits)!=set(plan.names):
         raise ValueError("Engineering limits must cover every imported actuator")
+    if expected_joint_types is not None and (
+        not isinstance(expected_joint_types,dict) or
+        set(expected_joint_types)!=set(plan.names) or
+        any(t not in ("prismatic","revolute") for t in expected_joint_types.values())
+    ):
+        raise ValueError("Expected verified URDF joint-type map must cover each actuator")
     if not isinstance(plan.duration_s,(float,int)) or not math.isfinite(plan.duration_s) or plan.duration_s<=0:
         raise ValueError("Motion duration must be positive")
     if len(plan.samples)<2 or len(plan.samples)>7200:
@@ -72,6 +79,11 @@ def audit_joint_motion(plan: ImportedTrajectory, source_limits: dict, *,
         source_speed=_positive(source_speed,"verified source URDF motor rating")
         if max_speed>source_speed*(1+1e-9):
             raise ValueError("Engineering speed limit exceeds source URDF rating")
+        joint_type=limit.get("joint_type")
+        if joint_type not in ("revolute","prismatic"):
+            raise ValueError(f"{name}: reviewed joint_type must be revolute or prismatic")
+        if expected_joint_types is not None and joint_type!=expected_joint_types[name]:
+            raise ValueError(f"{name}: reviewed joint_type disagrees with loaded URDF")
         delta=abs(b-a)
         t=float(plan.duration_s)
         actual_v=1.875*delta/t
@@ -82,7 +94,7 @@ def audit_joint_motion(plan: ImportedTrajectory, source_limits: dict, *,
                  actual_jerk<=max_jerk+1e-10)
         all_pass=all_pass and success
         report[name]={
-            "unit":"m" if limit.get("joint_type")=="prismatic" else "rad",
+            "unit":"m" if joint_type=="prismatic" else "rad",
             "documented_limits":{
                 "speed":max_speed,
                 "acceleration":max_acceleration,
@@ -102,6 +114,7 @@ def audit_joint_motion(plan: ImportedTrajectory, source_limits: dict, *,
         "asset_id":plan.asset_id,
         "limit_document_sha256":hashlib.sha256(canonical).hexdigest(),
         "source_urdf_sha256_bound_and_verified":expected_source_sha256 is not None,
+        "reviewed_joint_types_cross_checked_with_loaded_urdf":expected_joint_types is not None,
         "quintic_analytical_maxima_used":True,
         "all_documented_limits_passed":all_pass,
         "per_joint":report,

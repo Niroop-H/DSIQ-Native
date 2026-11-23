@@ -76,6 +76,13 @@ class CorePhysicsRobotCLITests(unittest.TestCase):
 
 @unittest.skipUnless(BULLET and USD,"OpenUSD and Bullet both required")
 class CoreUSDCLITests(unittest.TestCase):
+    def test_unified_three_core_acceptance_command(self):
+        status,report=invoke("core-readiness")
+        self.assertEqual(status,0,report)
+        self.assertTrue(report["all_defined_software_gates_passed"])
+        self.assertEqual(report["physics"]["reference_case_count"],10)
+        self.assertFalse(report["industrial_release_ready"])
+
     def test_physics_recording_has_real_time_samples(self):
         with TemporaryDirectory() as folder:
             project=save_project(

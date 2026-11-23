@@ -96,3 +96,21 @@ that world-space link frames are safe local animation offsets.
 All implemented features require CI tests on Windows/Linux and the
 OpenUSD/Bullet integration suite. Passing those tests is not a
 certificate covering all physical phenomena, robot families or USD files.
+
+
+## Unified all-three-core acceptance command
+
+    python -m dsiq_native core-readiness
+
+This executes all ten currently defined isolated physics cases,
+verified non-OEM imported-gantry multi-axis trajectory planning and
+tracking, real Bullet discrete obstacle preflight, genuine OpenUSD
+layer composition and actual time-sampled robot motion inspection.
+It writes a machine-readable report containing all individual
+software gate booleans and unresolved industrial blockers.
+
+The all_defined_software_gates_passed property is a narrowly bounded
+regression signal. The industrial_release_ready property remains FALSE
+until external machine measurements, physical validation, production
+safety and hardware qualification have been obtained. A green CI test
+is not a replacement for those domain-specific proofs.

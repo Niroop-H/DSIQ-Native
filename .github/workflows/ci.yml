@@ -52,6 +52,7 @@ jobs:
           python -m dsiq_native machine-verify build/reference-scenes/user-gantry
           python -m dsiq_native bullet-usd-record build/reference-scenes/measured-motion.usda --frames 4 --steps-per-frame 12 --urdf-manifest build/reference-scenes/user-gantry/machine.manifest.json --joint actuator_x --target 0.25
           python -m dsiq_native usd-telemetry-inspect build/reference-scenes/measured-motion.usda
+          python -m dsiq_native core-readiness > build/reference-scenes/core-readiness.json
           python -m dsiq_native workcell-new build/reference-scenes/reference.workcell.json --id review_robotics_cell --name "Unqualified CI reference cell" --manifest build/reference-scenes/user-gantry/machine.manifest.json
           python -m dsiq_native workcell-inspect build/reference-scenes/reference.workcell.json
           python -m dsiq_native workcell-audit build/reference-scenes/reference.workcell.json --steps 24

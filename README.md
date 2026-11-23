@@ -28,6 +28,20 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 
 **Not yet built/qualified:** standalone RTX rendering integration, validated PhysX articulation simulation on the RTX 3050, MJCF import, production-qualified ROS 2 bridges, industry-calibrated robot dynamics, RTX-accurate RGB/depth sensors, realistic sensor noise calibration, detailed approved OEM CAD libraries, and production Windows installers. Actual CPU Bullet RGB-D/LiDAR and verified local URDF inspection/import exist, but they are not RTX or physically calibrated replacements. These are explicit milestones, not hidden stubs labeled complete.
 
+## Unified core acceptance report (measured, not overstated)
+
+All three core reference engines can be verified together, including
+ten numerical physics reference cases, source-qualified imported URDF
+motion with live collision preflight, and time-sampled OpenUSD readback:
+
+    python -m pip install -e ".[robotics]"
+    python -m dsiq_native core-readiness
+
+The output separates all defined software gate results from the
+remaining industrial qualification requirements. Passing the defined
+software suite does NOT mean complete physics/robotics/OpenUSD feature
+coverage, exact OEM geometry, safety certification or RTX validation.
+
 ## Three foundational engine upgrades: physics, robotics, OpenUSD
 
 The physics core now has isolated, measured **energy-drift and linear

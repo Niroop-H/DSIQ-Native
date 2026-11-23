@@ -270,6 +270,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Read/validate actual Bullet time-sampled robot and payload states in OpenUSD"
     )
     inspect_rec.add_argument("scene_file")
+    sub.add_parser(
+        "core-readiness",
+        help="Execute all three reference core acceptance suites; report industrial blockers"
+    )
     return p
 
 
@@ -278,7 +282,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         command = args.command
         code = 0
-        if command == "physics-conservation":
+        if command == "core-readiness":
+            from .core_readiness import inspect_core_readiness
+            result=inspect_core_readiness()
+            code=0 if result["all_defined_software_gates_passed"] else 3
+        elif command == "physics-conservation":
             from .physics_conservation import run_conservation_suite
             result=run_conservation_suite()
             code=0 if result["passed"] else 3

@@ -169,3 +169,43 @@ Omniverse parity or universal safety certification.
 
 The supplied references are bibliographic pointers, not claims that
 DSIQ has complied with or been certified against those documents.
+
+
+## Implementation status update — 23 November 2026
+
+This is an **engineering change log, not a rescore** of the 42/100
+planning baseline. It records software evidence added after the original
+16d1305 review. External metrology, safety review, code-signing and
+customer acceptance remain outstanding.
+
+| Area | Newly implemented code or check | What this does **not** prove |
+|---|---|---|
+| Robot-path preflight | Reject changed Bullet start state, mismatched joint indices/velocity ratings, nonfinite states, off-limit interpolated samples, changed endpoints and invalid path timing before collision screening | No continuous swept collision or self-collision safety qualification |
+| Geometry path timestamps | Coarse/adaptively sampled paths use a uniform path-progress time basis over the stated duration; report explicitly disclaims continuous servo timing | No validated actuator dynamics or real-time controller behavior |
+| URDF limit fidelity | A reviewed source-bound joint-motion document must match actual Bullet-imported revolute/prismatic joint types in the CLI | No OEM calibration, torque model or valid external sign-off |
+| Software supply chain | CI security job fails closed if pip-audit detects vulnerable installed packages **or cannot complete**; the audit evidence uploads even when it blocks CI | Not penetration testing, publisher verification or approved licenses |
+| Patch floor | Security extra uses cryptography >=50,<51; build tools require setuptools >=84.1.0 and the CI security job upgrades its installed setuptools | No promise every future dependency tree is vulnerability-free |
+
+After addressing the audit finding, GitHub Actions security job for
+[commit bc4aa7b](https://github.com/Niroop-H/DSIQ-Native/actions/runs/45108583964)
+reported no known vulnerabilities in the **security job's installed
+Python environment**, and the new joint-type tests passed. This is
+limited CI evidence; it is not a whole-product dependency license or
+binary vulnerability assessment. Full cross-platform run status should
+be inspected for the exact release SHA before publication.
+
+### Remaining externally evidenced work — GitHub issue register
+
+- [#1 P0 — independent robot safety assessment and measured failures](https://github.com/Niroop-H/DSIQ-Native/issues/1)
+- [#2 P0 — licensed OEM geometry and physical calibration](https://github.com/Niroop-H/DSIQ-Native/issues/2)
+- [#3 P0 — signed release, vulnerability remediation and license clearance](https://github.com/Niroop-H/DSIQ-Native/issues/3)
+- [#4 P1 — real RTX 3050 / 16 GB acceptance benchmark](https://github.com/Niroop-H/DSIQ-Native/issues/4)
+- [#5 P1 — mechanical CAD editing and OpenUSD acceptance](https://github.com/Niroop-H/DSIQ-Native/issues/5)
+- [#6 P1 — commissioned ROS 2, calibrated sensor and physical safety boundary](https://github.com/Niroop-H/DSIQ-Native/issues/6)
+- [#7 P1 — independent physical-AI training and transfer benchmarks](https://github.com/Niroop-H/DSIQ-Native/issues/7)
+- [#8 P1 — externally accepted customer pilot](https://github.com/Niroop-H/DSIQ-Native/issues/8)
+
+**Go/no-go rule:** do not raise the industrial qualification score
+based only on these commits. To earn 100/100 in the bounded commercial
+scope, each category must have the required empirical evidence,
+applicable controls and an authorized independent acceptance decision.

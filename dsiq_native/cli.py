@@ -570,8 +570,11 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 motion_audit=None
                 if args.motion_limit_file:
+                    from .urdf_bridge import validate_robot_manifest
+                    verified_manifest,_=validate_robot_manifest(args.manifest)
                     motion_audit=audit_joint_motion(
-                        plan,load_joint_limits(args.motion_limit_file)
+                        plan,load_joint_limits(args.motion_limit_file),
+                        expected_source_sha256=verified_manifest["geometry"]["sha256"],
                     )
                     if not motion_audit["all_documented_limits_passed"]:
                         raise ValueError(

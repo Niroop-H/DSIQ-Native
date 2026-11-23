@@ -49,6 +49,18 @@ class AnalyticImportedMotionTests(unittest.TestCase):
         self.assertFalse(out["all_documented_limits_passed"])
         self.assertFalse(out["per_joint"]["linear_actuator"]["passes_all_documented_limits"])
 
+    def test_limit_document_cannot_be_reused_for_a_changed_urdf(self):
+        with self.assertRaisesRegex(ValueError,"verified URDF SHA256"):
+            audit_joint_motion(
+                self.plan,self.source,
+                expected_source_sha256="a"*64
+            )
+        self.source["source_urdf_sha256"]="a"*64
+        result=audit_joint_motion(
+            self.plan,self.source,expected_source_sha256="a"*64
+        )
+        self.assertTrue(result["source_urdf_sha256_bound_and_verified"])
+
     def test_missing_axis_or_bogus_urdf_speed_rejected(self):
         self.source["joints"]={}
         with self.assertRaisesRegex(ValueError,"every imported actuator"):

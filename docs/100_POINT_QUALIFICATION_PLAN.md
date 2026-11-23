@@ -76,13 +76,17 @@ Required limits-file schema:
     {
       "schema":"dsiq-document-controlled-joint-motion-limits-v1",
       "asset_id":"SOURCE_ASSET_ID",
+      "source_urdf_sha256":"REPLACE_WITH_REAL_64_CHARACTER_SOURCE_URDF_SHA256",
       "joints":{
         "actuator_x":{"joint_type":"prismatic",
           "max_speed":0.3,"max_acceleration":0.5,"max_jerk":1.0}
       }
     }
 
-Include **every actuated axis**; adapt only to real source limits.
+Include **every actuated axis** and bind the file to the exact URDF
+SHA-256 in the verified source manifest. DSIQ rejects a mismatch
+before any simulation motor execution. Limits must reflect real
+engineering data, not convenient arbitrary numbers.
 The software stop latch is NOT a physical emergency-stop function.
 The existing path checker remains sampled rather than continuous.
 Proper physical safety requires independent rated safety control,

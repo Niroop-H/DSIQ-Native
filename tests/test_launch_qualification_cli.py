@@ -66,6 +66,9 @@ class SourceJointMotionGateCLI(unittest.TestCase):
             file.write_text(json.dumps({
                 "schema":"dsiq-document-controlled-joint-motion-limits-v1",
                 "asset_id":"test_limit_gantry",
+                "source_urdf_sha256":json.loads(
+                    Path(source["manifest"]).read_text()
+                )["geometry"]["sha256"],
                 "joints":joints,
             }))
             status,report=invoke(*command,"--motion-limit-file",file)

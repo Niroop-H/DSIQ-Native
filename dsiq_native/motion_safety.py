@@ -28,7 +28,8 @@ def _positive(v,name):
     return float(v)
 
 
-def audit_joint_motion(plan: ImportedTrajectory, source_limits: dict) -> dict:
+def audit_joint_motion(plan: ImportedTrajectory, source_limits: dict, *,
+                       expected_source_sha256: str | None = None) -> dict:
     """Check strict source-declared velocity, acceleration, and jerk envelopes.
 
     All actuated axes must have bounded, explicit limits. A missing axis
@@ -38,6 +39,15 @@ def audit_joint_motion(plan: ImportedTrajectory, source_limits: dict) -> dict:
         raise ValueError("Motion-limit document schema missing")
     if source_limits.get("asset_id")!=plan.asset_id:
         raise ValueError("Engineering limits do not apply to this source robot")
+    if expected_source_sha256 is not None:
+        if (not isinstance(expected_source_sha256,str) or
+                len(expected_source_sha256)!=64 or
+                any(ch not in "0123456789abcdef" for ch in expected_source_sha256)):
+            raise ValueError("Expected verified source URDF digest invalid")
+        if source_limits.get("source_urdf_sha256")!=expected_source_sha256:
+            raise ValueError(
+                "Motion-limit document is not bound to the verified URDF SHA256"
+            )
     limits=source_limits.get("joints")
     if not isinstance(limits,dict) or set(limits)!=set(plan.names):
         raise ValueError("Engineering limits must cover every imported actuator")
@@ -91,6 +101,7 @@ def audit_joint_motion(plan: ImportedTrajectory, source_limits: dict) -> dict:
         "schema":"dsiq-quintic-motion-limit-audit-v1",
         "asset_id":plan.asset_id,
         "limit_document_sha256":hashlib.sha256(canonical).hexdigest(),
+        "source_urdf_sha256_bound_and_verified":expected_source_sha256 is not None,
         "quintic_analytical_maxima_used":True,
         "all_documented_limits_passed":all_pass,
         "per_joint":report,

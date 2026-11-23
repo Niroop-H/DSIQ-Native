@@ -2,11 +2,17 @@
 
 **Basis:** User-supplied *DSIQ Native: Review, and a Roadmap to Compete with NVIDIA Omniverse*, dated 23 November 2026, originally reviewing commit 853d6f3. This plan converts its engineering recommendations into measurable acceptance gates rather than claiming general competitive parity.
 
+## Full-feature program direction — user-confirmed
+
+DSIQ Native targets **comprehensive feature parity across NVIDIA Omniverse capability families**, not only a small subset of auditable tooling. Engineering tracks are developed in parallel while release and qualification gates remain evidence-driven. Source-verified assets and vendor portability remain product advantages, not reasons to exclude rendering, robotics, AI, sensors, collaboration or advanced infrastructure.
+
+See the 20-family parallel execution and acceptance matrix: [OMNIVERSE_FULL_PARITY_MASTER_MATRIX.md](OMNIVERSE_FULL_PARITY_MASTER_MATRIX.md).
+
 ## The differentiated product
 
-A vendor-neutral, auditable OpenUSD simulation and digital-twin toolkit with portable compute and built-in qualification evidence.
+A comprehensive Omniverse-class engineering platform built around portable OpenUSD, modular physics/rendering/AI services, auditable assets, local-to-cluster execution, and built-in qualification evidence.
 
-This is a proposed positioning, **not** a claim of equal performance across NVIDIA, AMD and Intel GPUs. Demonstrate it through matched scene, numerical fidelity, hardware usage and release metrics, including failures.
+This is an engineering target, **not** a claim of current feature parity or equal performance across NVIDIA, AMD and Intel GPUs. Demonstrate it through matched scene, numerical fidelity, hardware usage and release metrics, including failures.
 
 ## Design constraints to preserve
 
@@ -69,8 +75,12 @@ This is a proposed positioning, **not** a claim of equal performance across NVID
 
 **Exit:** A bounded, independently accepted workcell deployment. This does not assert universal industrial safety or NVIDIA parity.
 
+## Parallel execution and integration gates
+
+The phase labels remain verification milestones, **not a requirement to wait before prototyping later capability families**. Vulkan/Hydra, Physical AI, sensors, collaboration and streaming may be developed concurrently when their acceptance boundaries are explicit; integration into the supported native application requires reproducible test evidence.
+
 ## Explicit stop rules
 
-Do not simultaneously build a new physics solver, renderer and app framework. Do not market a Kit extension as independent rendering. Do not infer physical safety from software stop latches or discrete collision sampling. Do not claim universal Vulkan support or hardware performance from Mesa CI. Do not add more domains before one machine's data-to-screen-to-simulation workflow is proven.
+Do not simultaneously claim unfinished physics solvers, renderers or application frameworks are shipping production features. Do not market a Kit extension as independent rendering. Do not infer physical safety from software stop latches or discrete collision sampling. Do not claim universal Vulkan support or hardware performance from Mesa CI. Do not add more domains before one machine's data-to-screen-to-simulation workflow is proven.
 
 See the qualification plan, source URDF documentation, OpenUSD composition design and GitHub Actions evidence. This roadmap provides relative priority and acceptance evidence, not promised delivery dates.

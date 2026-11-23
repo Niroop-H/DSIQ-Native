@@ -52,6 +52,20 @@ class OpenGLWorkcellStudioAcceptance(unittest.TestCase):
                               if x["asset_id"]==app._selected)["position_m"]
                 self.assertAlmostEqual(restored[0],before[0])
                 app.redo()
+                before_grid=next(x for x in app.editor.entities()
+                                 if x["asset_id"]==app._selected)["position_m"]
+                grid=app.set_grid_snap(.005)
+                self.assertEqual(grid["grid_snap_m"],.005)
+                snap=app.move_selected(.025,0,0)
+                self.assertAlmostEqual(snap["position_m"][0],before_grid[0]+.005)
+                app.undo()
+                after_grid=next(x for x in app.editor.entities()
+                                if x["asset_id"]==app._selected)["position_m"]
+                self.assertAlmostEqual(after_grid[0],before_grid[0])
+                self.assertEqual(app.cycle_grid_snap()["grid_snap_m"],.001)
+                with self.assertRaises(ValueError):
+                    app.set_grid_snap(float("nan"))
+                app.set_grid_snap(0)
                 frame=app.benchmark(frames=24,screenshot=image)
                 self.assertEqual(frame["renderer"],"Panda3D_OpenGL_rasterization")
                 self.assertEqual(frame["referenced_assemblies"],2)

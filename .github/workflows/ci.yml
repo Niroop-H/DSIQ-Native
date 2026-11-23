@@ -43,9 +43,13 @@ jobs:
       - name: Compile and run real native Warp kernel, prove bounded source metadata
         run: |
           python -m unittest discover -s tests -p test_gpu_vector_gantry.py -v
+          python -m unittest discover -s tests -p test_gpu_vector_xyz.py -v
           mkdir -p build/gpu-compute
           python -m dsiq_native gpu-compute-check > build/gpu-compute/cuda-devices.json
           python -m dsiq_native gpu-vector-benchmark --device cpu --envs 256 --steps 48 --oracle-samples 16 > build/gpu-compute/compiled-warp-cpu-reference.json
+          python -m dsiq_native gpu-xyz-benchmark --device cpu --envs 128 --steps 24 --oracle-samples 8 > build/gpu-compute/compiled-warp-xyz-cpu-reference.json
+          python -c 'import json; r=json.load(open("build/gpu-compute/compiled-warp-xyz-cpu-reference.json")); assert r["independent_oracle_passed"] and r["warp_compiled_kernel_executed"] and not r["actual_cuda_kernel_executed"] and r["total_axis_updates"]==9216 and r["axes_per_env"]==3'
+
           python -c 'import json; p=json.load(open("build/gpu-compute/compiled-warp-cpu-reference.json")); assert p["independent_oracle_passed"] and p["uses_real_warp_compiled_kernel"] and not p["actual_gpu_kernel_executed"] and not p["hardware_qualified_on_requested_gpu"] and p["total_actuator_updates"]==12288'
       - name: Archive native Warp reference evidence; do not fabricate CUDA success
         if: always()

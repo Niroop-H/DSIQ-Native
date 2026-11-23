@@ -17,6 +17,67 @@ from .imported_trajectory import ImportedTrajectory
 MAX_REPORTED_OBSTACLES=24
 
 
+
+def _validate_path_against_loaded_robot(world, robot, plan: ImportedTrajectory) -> float:
+    """Reject mutated, stale, out-of-limit or nonfinite path data BEFORE Bullet writes.
+
+    The returned stride is a *uniform path-progress time basis*, so an
+    intentionally decimated two-point plan still spans its documented total
+    duration. This is interpolation for screening, not a servo timing model.
+    """
+    actuated = [j for j in robot["joints"] if j["lower"] is not None]
+    if not actuated or len(actuated) > 63:
+        raise ValueError("Loaded mechanism has no bounded actuated joint set")
+    if plan.names != tuple(j["name"] for j in actuated):
+        raise ValueError("Plan mechanism identity differs from currently imported robot")
+    if plan.joint_indices != tuple(j["joint_index"] for j in actuated):
+        raise ValueError("Plan joint indices differ from the loaded URDF articulation")
+    if len(set(plan.names)) != len(plan.names):
+        raise ValueError("Plan contains duplicate joint names")
+    count = len(actuated)
+    if len(plan.samples) < 2 or len(plan.samples) > 7200:
+        raise ValueError("Joint trajectory exceeds bounded collision sampling budget")
+    for label, values in (
+        ("start", plan.start), ("goal", plan.goal),
+        ("source velocities", plan.declared_speed_limits),
+    ):
+        if len(values) != count or any(
+            type(x) not in (int, float) or not math.isfinite(x) for x in values
+        ):
+            raise ValueError(f"Plan {label} must contain finite values for every axis")
+    if any(not math.isclose(v, j["max_velocity"], rel_tol=1e-9, abs_tol=1e-10)
+           for v, j in zip(plan.declared_speed_limits, actuated)):
+        raise ValueError("Plan velocity ratings differ from the imported URDF")
+    if (type(plan.duration_s) not in (int, float) or
+            not math.isfinite(plan.duration_s) or not 0 < plan.duration_s <= 120):
+        raise ValueError("Plan duration must be finite and positive")
+    if (type(plan.timestep_s) not in (int, float) or
+            not math.isfinite(plan.timestep_s) or not 0 < plan.timestep_s <= .1):
+        raise ValueError("Plan timestep must be finite and positive")
+    for i, state in enumerate(plan.samples):
+        if len(state) != count:
+            raise ValueError("Path sample has an invalid actuator count")
+        for q, j in zip(state, actuated):
+            if type(q) not in (int, float) or not math.isfinite(q):
+                raise ValueError("Path contains a nonfinite or invalid joint sample")
+            if abs(q) > 8 * math.pi:
+                raise ValueError("Path exceeds conservative absolute joint bound")
+            if j["lower"] <= j["upper"] and not (
+                j["lower"] - 1e-9 <= q <= j["upper"] + 1e-9
+            ):
+                raise ValueError("Path sample exceeds loaded URDF travel limits")
+        if i in (0, len(plan.samples) - 1):
+            expected = plan.start if i == 0 else plan.goal
+            if any(abs(q - e) > 1e-8 for q, e in zip(state, expected)):
+                raise ValueError("Path endpoint disagrees with planned start or goal")
+    for index, reference in zip(plan.joint_indices, plan.start):
+        observed = float(world.p.getJointState(
+            robot["body_id"], index, physicsClientId=world.client,
+        )[0])
+        if not math.isfinite(observed) or abs(observed - reference) > 1e-3:
+            raise ValueError("Robot joint state changed since planning; replan first")
+    return float(plan.duration_s) / (len(plan.samples) - 1)
+
 def screen_imported_path(world, plan: ImportedTrajectory,
                          *, clearance_m: float = .003,
                          max_joint_step: float = .04,
@@ -32,10 +93,7 @@ def screen_imported_path(world, plan: ImportedTrajectory,
     robot=world.imported_robots.get(plan.asset_id)
     if not robot:
         raise ValueError("URDF robot not present; cannot inspect nonexistent geometry")
-    if tuple(j["name"] for j in robot["joints"] if j["lower"] is not None)!=plan.names:
-        raise ValueError("Plan mechanism identity differs from currently imported robot")
-    if len(plan.samples)<2 or len(plan.samples)>7200:
-        raise ValueError("Joint trajectory exceeds bounded collision sampling budget")
+    sample_stride_s = _validate_path_against_loaded_robot(world, robot, plan)
     # Interpolate every segment in joint coordinates rather than trusting
     # only externally supplied coarse samples. No single global angular
     # threshold guarantees Cartesian link clearance for all geometries.
@@ -99,7 +157,7 @@ def screen_imported_path(world, plan: ImportedTrajectory,
                         continue
                     obstacle={
                         "sample_index":fractional_index,
-                        "time_s":fractional_index*plan.timestep_s,
+                        "time_s":fractional_index*sample_stride_s,
                         "other_body_id":int(other),
                         "joint_link_index":link_a,
                         "contact_signed_separation_m":separation,
@@ -123,6 +181,10 @@ def screen_imported_path(world, plan: ImportedTrajectory,
         "total_samples":len(plan.samples),
         "adaptive_sample_count":expanded,
         "max_joint_step":max_joint_step,
+        "path_preflight_identity_and_limits_passed":True,
+        "start_state_verified_against_live_bullet":True,
+        "time_mapping":"UNIFORM_PATH_PROGRESS_NOT_CONTINUOUS_SERVO_TRAJECTORY",
+        "screened_path_duration_s":float(plan.duration_s),
         "subdivision_applied":expanded>len(plan.samples),
         "clearance_m":float(clearance_m),
         "first_blocking_collision":first,

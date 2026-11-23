@@ -61,6 +61,10 @@ class ImportedTrajectoryTests(unittest.TestCase):
         )
         self.assertFalse(record["physical_hardware_qualified"])
         self.assertFalse(record["collision_free_certified"])
+        self.assertEqual(len(record["source_urdf_sha256"]),64)
+        self.assertEqual(record["joint_units_from_loaded_urdf"],{
+            name:"m" for name in path.names
+        })
 
     def test_fail_closed_on_bad_speed_limits_and_out_of_range_goals(self):
         with self.assertRaises(ValueError):

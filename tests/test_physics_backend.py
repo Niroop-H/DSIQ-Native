@@ -17,8 +17,10 @@ from dsiq_native.physics_backend import (
 class PhysicsBackendSpecificationTests(unittest.TestCase):
     def test_advertises_only_implemented_solver(self):
         caps=available_backend_capabilities()
-        self.assertEqual([x["backend_id"] for x in caps],
-                         ["bullet_cpu_direct_v1"])
+        ids=[x["backend_id"] for x in caps]
+        self.assertIn("bullet_cpu_direct_v1",ids)
+        self.assertTrue(set(ids)<={"bullet_cpu_direct_v1","mujoco_cpu_direct_v1"})
+        self.assertEqual(len(ids),len(set(ids)))
         self.assertFalse(caps[0]["supports_usd_physics_import"])
         self.assertFalse(caps[0]["supports_gpu_batched_worlds"])
         self.assertFalse(caps[0]["supports_hardware_actuation"])

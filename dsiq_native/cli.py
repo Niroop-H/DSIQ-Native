@@ -37,6 +37,12 @@ def build_parser() -> argparse.ArgumentParser:
     inspect = sub.add_parser("inspect", help="Inspect USD topology and physics-schema counts")
     inspect.add_argument("scene")
     inspect.add_argument("--max-prims", type=int, default=20000)
+    profile=sub.add_parser(
+        "usd-scene-profile",
+        help="Read-only OpenUSD geometry-reuse candidates, no automatic merge or fidelity loss"
+    )
+    profile.add_argument("scene")
+    profile.add_argument("--max-prims",type=int,default=30000)
 
     attach = sub.add_parser("attach", help="Reference verified real USD assets")
     attach.add_argument("scene")
@@ -753,6 +759,9 @@ def main(argv: list[str] | None = None) -> int:
             if args.max_prims <= 0:
                 raise ValueError("--max-prims must be positive")
             result = inspect_stage(args.scene, max_prims=args.max_prims)
+        elif command == "usd-scene-profile":
+            from .usd_scene_profile import profile_usd_scene
+            result=profile_usd_scene(args.scene,max_prims=args.max_prims)
         elif command == "attach":
             result = attach_asset(args.scene, args.manifest)
         elif command == "playground":

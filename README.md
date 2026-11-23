@@ -28,6 +28,25 @@ The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Exp
 
 **Not yet built/qualified:** standalone RTX rendering integration, validated PhysX articulation simulation on the RTX 3050, MJCF import, production-qualified ROS 2 bridges, industry-calibrated robot dynamics, RTX-accurate RGB/depth sensors, realistic sensor noise calibration, detailed approved OEM CAD libraries, and production Windows installers. Actual CPU Bullet RGB-D/LiDAR and verified local URDF inspection/import exist, but they are not RTX or physically calibrated replacements. These are explicit milestones, not hidden stubs labeled complete.
 
+## Three foundational engine upgrades: physics, robotics, OpenUSD
+
+The physics core now has isolated, measured **energy-drift and linear
+momentum** tests with explicit analytic references. The imported robotics
+core can plan and execute multi-axis trajectories for rights-verified
+revolute/prismatic URDF robots using URDF-specified velocity limits
+rather than only the bundled 6R manipulator. The OpenUSD core can
+serialize **real measured Bullet link/joint motion** as time-sampled
+metric/Z-up USD animation data.
+
+    python -m dsiq_native physics-conservation
+    python -m dsiq_native robot-urdf-motion machine/machine.manifest.json --target actuator_x=0.25
+    python -m dsiq_native bullet-usd-record motion.usda --urdf-manifest machine/machine.manifest.json --joint actuator_x --target 0.25
+    python -m dsiq_native usd-telemetry-inspect motion.usda
+
+These are measurable execution paths, not manufacturer-qualified motion,
+a collision-free industrial planner, PhysX, or photorealistic GPU rendering.
+See [Core Engine Acceptance](docs/CORE_ENGINES_ACCEPTANCE.md).
+
 ## Universal workcell qualification framework and native scene inspector
 
 DSIQ now includes a shared quality gate for **every registered robotic

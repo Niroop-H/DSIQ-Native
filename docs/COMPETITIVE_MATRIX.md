@@ -16,6 +16,21 @@
 | 16GiB RAM / RTX3050 | Selective graceful operation with constrained scene | Advisory GPU budget; standalone CPU software-rendered studio, headless Windows/Linux CI; RTX3050 GUI untested | Actual workstation RAM traces, GUI/fps/accuracy acceptance |
 | Shipping | Signed, supported Windows installer | Not implemented | Clean-room install, license/redistribution review |
 
+## Core-engine new acceptance coverage
+
+- Physics solver: measured numerical mechanical energy drift across
+  120/240/480 Hz refinement and isolated zero-force linear momentum,
+  with explicit acceptance tolerances. Still no FEM/fluid qualification.
+- Robotics: general, multi-axis **verified imported URDF** quintic
+  trajectory planning/execution using each real source velocity limit,
+  with measured joint tracking, limits and collision event counts.
+  It does NOT yet certify swept collisions or torque/acceleration loads.
+- OpenUSD: measured Bullet robot base/link poses, joint angles and
+  sandbox object poses recorded as genuine metric/Z-up USD temporal
+  samples; the recorder does not generate OEM visuals or an RTX renderer.
+- Joint-motion-to-CAD visual binding, collision-free motion, physical
+  hardware qualification and advanced simulation remain release blockers.
+
 ## Every workcell policy and editor progress
 
 - A versioned workcell schema now defines **required mechanical roles**

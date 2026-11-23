@@ -50,6 +50,8 @@ jobs:
           python -m dsiq_native environment-usd logistics_bay build/reference-scenes/logistics.usda
           python -m dsiq_native machine-create build/reference-scenes/user-gantry --name review_gantry
           python -m dsiq_native machine-verify build/reference-scenes/user-gantry
+          python -m dsiq_native bullet-usd-record build/reference-scenes/measured-motion.usda --frames 4 --steps-per-frame 12 --urdf-manifest build/reference-scenes/user-gantry/machine.manifest.json --joint actuator_x --target 0.25
+          python -m dsiq_native usd-telemetry-inspect build/reference-scenes/measured-motion.usda
           python -m dsiq_native workcell-new build/reference-scenes/reference.workcell.json --id review_robotics_cell --name "Unqualified CI reference cell" --manifest build/reference-scenes/user-gantry/machine.manifest.json
           python -m dsiq_native workcell-inspect build/reference-scenes/reference.workcell.json
           python -m dsiq_native workcell-audit build/reference-scenes/reference.workcell.json --steps 24
@@ -77,6 +79,9 @@ jobs:
       - run: python -m unittest discover -s tests -v
       - run: python -m dsiq_native bullet-run --steps 240 --boxes 2
       - run: python -m dsiq_native physics-extended
+      - run: python -m dsiq_native physics-conservation
+      - run: python -m dsiq_native machine-create build/runtime-gantry --name ci_runtime_gantry
+      - run: python -m dsiq_native robot-urdf-motion build/runtime-gantry/machine.manifest.json --target actuator_x=0.25 --target actuator_y=0.10
       - run: python -m dsiq_native ros2-preview --steps-per-frame 12 --lidar-rays 24
 
   bullet-windows:
@@ -90,6 +95,9 @@ jobs:
       - run: python -m unittest discover -s tests -v
       - run: python -m dsiq_native bullet-run --steps 240 --boxes 2
       - run: python -m dsiq_native physics-extended
+      - run: python -m dsiq_native physics-conservation
+      - run: python -m dsiq_native machine-create build/runtime-gantry --name ci_runtime_gantry
+      - run: python -m dsiq_native robot-urdf-motion build/runtime-gantry/machine.manifest.json --target actuator_x=0.25 --target actuator_y=0.10
       - run: python -m dsiq_native ros2-preview --steps-per-frame 12 --lidar-rays 24
 
   desktop-linux-xvfb:

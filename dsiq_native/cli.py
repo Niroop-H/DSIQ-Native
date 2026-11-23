@@ -240,6 +240,34 @@ def build_parser() -> argparse.ArgumentParser:
     catalog.add_argument("catalog_file")
     catalog.add_argument("--simulate",action="store_true")
     catalog.add_argument("--steps",type=int,default=120)
+    sub.add_parser(
+        "physics-conservation",
+        help="Measure isolated Bullet mechanical-energy and linear-momentum residuals"
+    )
+    urdfmotion=sub.add_parser(
+        "robot-urdf-motion",
+        help="Plan and execute source-velocity-bounded trajectory for ANY verified URDF articulation"
+    )
+    urdfmotion.add_argument("manifest")
+    urdfmotion.add_argument("--target",action="append",required=True,
+        metavar="JOINT=VALUE",help="Repeat to command multiple named URDF axes")
+    urdfmotion.add_argument("--duration",type=float,default=None)
+    urdfmotion.add_argument("--record-every",type=int,default=24)
+    rec=sub.add_parser(
+        "bullet-usd-record",
+        help="Record real Bullet joint states and link-frame animation into genuine OpenUSD"
+    )
+    rec.add_argument("scene_file")
+    rec.add_argument("--frames",type=int,default=12)
+    rec.add_argument("--steps-per-frame",type=int,default=8)
+    rec.add_argument("--urdf-manifest",default=None)
+    rec.add_argument("--joint",default=None)
+    rec.add_argument("--target",type=float,default=None)
+    inspect_rec=sub.add_parser(
+        "usd-telemetry-inspect",
+        help="Read/validate actual Bullet time-sampled robot and payload states in OpenUSD"
+    )
+    inspect_rec.add_argument("scene_file")
     return p
 
 
@@ -248,7 +276,59 @@ def main(argv: list[str] | None = None) -> int:
     try:
         command = args.command
         code = 0
-        if command == "workcell-new":
+        if command == "physics-conservation":
+            from .physics_conservation import run_conservation_suite
+            result=run_conservation_suite()
+            code=0 if result["passed"] else 3
+        elif command == "robot-urdf-motion":
+            from .imported_trajectory import (
+                plan_imported_trajectory,execute_imported_trajectory,
+            )
+            from .bullet_runtime import BulletPlayground,BulletSettings
+            values={}
+            for term in args.target:
+                if "=" not in term or term.count("=")!=1:
+                    raise ValueError("--target must be a named JOINT=VALUE assignment")
+                name,value=term.split("=",1)
+                if not name or name in values:
+                    raise ValueError("Target names must be nonempty and unique")
+                values[name]=float(value)
+            with BulletPlayground(BulletSettings(payload_count=0)) as world:
+                imported=world.import_urdf_robot(args.manifest)
+                plan=plan_imported_trajectory(
+                    world,imported["asset_id"],values,duration_s=args.duration
+                )
+                result={
+                    "import":imported,
+                    "plan":plan.summary(),
+                    "tracking":execute_imported_trajectory(
+                        world,plan,record_every=args.record_every,
+                    ),
+                }
+        elif command == "bullet-usd-record":
+            from .bullet_runtime import BulletPlayground,BulletSettings
+            from .usd_telemetry import record_bullet_usd
+            if (args.joint is None)!=(args.target is None):
+                raise ValueError("--joint and --target must be provided together")
+            if args.joint is not None and not args.urdf_manifest:
+                raise ValueError("Import a rights-verified URDF before driving its joint")
+            with BulletPlayground(BulletSettings(payload_count=0)) as world:
+                imported=None
+                if args.urdf_manifest:
+                    imported=world.import_urdf_robot(args.urdf_manifest)
+                    if args.joint is not None:
+                        world.command_imported_joint(
+                            imported["asset_id"],args.joint,args.target
+                        )
+                result=record_bullet_usd(
+                    world,args.scene_file,
+                    frames=args.frames,steps_per_frame=args.steps_per_frame,
+                )
+                result["imported_robot"]=imported["asset_id"] if imported else None
+        elif command == "usd-telemetry-inspect":
+            from .usd_telemetry import inspect_bullet_usd
+            result=inspect_bullet_usd(args.scene_file)
+        elif command == "workcell-new":
             from .workcell_acceptance import create_workcell
             result=create_workcell(
                 args.project_file,workcell_id=args.id,name=args.name,

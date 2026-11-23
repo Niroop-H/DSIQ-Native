@@ -35,8 +35,8 @@ def validate_batch_options(*, envs: int, steps: int, seed: int,
         raise ValueError("Warp device-buffer budget must be 8..256 MiB")
     if envs * steps > 80_000_000:
         raise ValueError("Total bounded Warp physics updates exceed 80 million")
-    # Initial, target, current and next q/v = six float32 arrays.
-    estimated=envs * 6 * 4
+    # Initial/current/next q/v and one target = seven float32 arrays.
+    estimated=envs * 7 * 4
     if estimated > memory_limit_mib * 1024 * 1024:
         raise ValueError("Warp batch exceeds explicit device-array budget")
 
@@ -192,6 +192,8 @@ def benchmark_warp_reduced_order(*, envs: int=4096, steps: int=240,
         raise ValueError("Warp device must be explicitly 'cpu' or 'cuda:<ordinal>'")
     if wp is None:
         raise RuntimeError('NVIDIA Warp is required: pip install -e ".[gpu-compute]"')
+    # Avoid Warp informational banners corrupting machine-readable CLI JSON.
+    wp.config.log_level=wp.LOG_WARNING
     wp.init()
     if device.startswith("cuda:") and not wp.is_device_available(device):
         raise RuntimeError(
@@ -324,6 +326,7 @@ def inspect_warp_compute() -> dict:
         return {"warp_installed":False,"cuda_available":False,
                 "gpu_compute_qualified":False,
                 "install":'pip install -e ".[gpu-compute]"'}
+    wp.config.log_level=wp.LOG_WARNING
     wp.init()
     devices=[]
     for x in wp.get_cuda_devices():

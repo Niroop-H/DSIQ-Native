@@ -9,6 +9,23 @@ physics and a lightweight native workcell editor. It is **not yet equivalent**
 to NVIDIA Omniverse, Isaac Sim or Isaac Lab. See the
 [qualification gates](docs/100_POINT_QUALIFICATION_PLAN.md).
 
+## GPU-first execution direction
+
+**Decision (23 November 2026): GPU computation is the primary scalability target.** The new optional **NVIDIA Warp** compute backend supports source-bounded X and X/Y/Z actuator batches on an explicitly requested CUDA device. The GPU command **never silently falls back to CPU** if a CUDA-capable device/driver is missing. CPU Bullet/MuJoCo remain reference dynamics, and Warp's independently selected CPU mode exists only for mathematical kernel checks.
+
+Windows / NVIDIA GPU setup:
+
+    python -m pip install -e ".[gpu-compute]"
+    python -m dsiq_native gpu-compute-check --require-cuda
+    python -m dsiq_native gpu-vector-benchmark --device cuda:0 --envs 4096 --steps 240
+    python -m dsiq_native gpu-xyz-benchmark --device cuda:0 --envs 16384 --steps 240
+
+Hardware evidence (requires a real compatible NVIDIA GPU; does not overwrite an existing report):
+
+    python scripts/gpu_cuda_hardware_acceptance.py --device cuda:0 --output build/gpu-cuda-hardware.json
+
+**Important:** Standard hosted CI runs actual compiled NVIDIA Warp *CPU* kernels to test numerical correctness; it has **not yet run CUDA hardware tests**. The kernel implementation is reduced-order independent X/Y/Z actuators, **not full GPU multibody or contact physics**. Do not interpret the CUDA-selectable code as verified RTX3050 speed. See the [GPU-first architecture, driver requirements and qualification gates](docs/GPU_FIRST_EXECUTION_ARCHITECTURE.md).
+
 ## Start in five minutes (Python 3.11)
 
 Windows PowerShell:
@@ -54,6 +71,7 @@ Kit extension is an interoperability adapter, not the main runtime.
 | OpenUSD | Metric Z-up stages, references, layers, variants, measured telemetry; read-only reuse profile | Payload streaming, general-purpose asset rule plugins, Hydra rendering |
 | Robotics | Bullet CPU physics, imported URDF actuators, bounded quintic motion, discrete collision checks, solver telemetry | Independent safety, CCD, OEM drive calibration, industrial control |
 | Physics backends | Source-verified real Bullet and optional real MuJoCo CPU adapters; isolated-world conformance and measured source-matched comparison | Newton, PhysX, full USD Physics import, physical calibration, GPU batches |
+| GPU compute | Native CUDA-selectable NVIDIA Warp kernels for independently stepped source-bounded one-axis and X/Y/Z gantry actuator batches; independent scalar-conformance CI | Real RTX3050 hardware validation, coupled GPU multibody physics, GPU contact solver, on-device policy training |
 | Editor | Native OpenGL/Panda3D window, hierarchy, move, undo/redo, 1/5/25 mm edit-grid snapping | Scalable PBR, mechanical mates/gizmos, RTX3050 hardware qualification |
 | Sensors/data | Bullet RGB-D/LiDAR, actual link-derived ideal IMU-like kinematics and ROS 2 read-only transport | Calibrated optics/IMU bias, uncertainty, synchronized real hardware |
 | Supply chain | Secure dependency audit, offline signed-update verification, SBOM, CI preview binaries | Independent licence review, publisher signing, validated installers |

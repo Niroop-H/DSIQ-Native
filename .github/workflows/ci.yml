@@ -44,6 +44,8 @@ jobs:
         run: |
           python -m unittest discover -s tests -p test_gpu_vector_gantry.py -v
           python -m unittest discover -s tests -p test_gpu_vector_xyz.py -v
+          python -m py_compile scripts/gpu_cuda_hardware_acceptance.py
+          python scripts/gpu_cuda_hardware_acceptance.py --help > /dev/null
           mkdir -p build/gpu-compute
           python -m dsiq_native gpu-compute-check > build/gpu-compute/cuda-devices.json
           python -m dsiq_native gpu-vector-benchmark --device cpu --envs 256 --steps 48 --oracle-samples 16 > build/gpu-compute/compiled-warp-cpu-reference.json

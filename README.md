@@ -8,6 +8,29 @@ DSIQ Native is a new, independent Windows-first industrial scene-authoring, simu
 
 The existing [DSIQ Domain Expansion](https://github.com/Niroop-H/DSIQ-Domain-Expansion) remains the **separate Web Edition** and is not modified by this project.
 
+## Additional cross-domain development: protected motion, visual USD, live DDS, learning and archive verification
+
+DSIQ now contains bounded adaptive joint-trajectory collision screening on
+actual Bullet geometry; source-checked URDF primitive visual animation
+authored into real OpenUSD; motor-effort and speed feedback diagnostics;
+real ROS 2 Jazzy DDS transport acceptance using captured Bullet messages;
+a small real Bullet tabular Q-learning reference policy; and SHA-256
+release archive member verification.
+
+    python -m dsiq_native robot-urdf-motion path/to/machine.manifest.json --target actuator_x=0.25 --max-joint-step 0.01
+    python -m dsiq_native usd-urdf-visual-record path/to/machine.manifest.json machine_motion.usda --frames 8 --joint actuator_x --target 0.25
+    python -m dsiq_native robot-policy-train reference_policy.json --episodes 96 --seed 1007
+    python -m dsiq_native release-verify windows.zip windows.attestation.json
+
+**Important limitations:** interpolated collision checks remain sampled,
+not continuous swept CCD; source URDF meshes are rejected until rights-checked
+conversion exists; live ROS 2 tests establish transport of measured data,
+not industrial robot control; Q-learning is a single-axis teaching baseline;
+archive verification is not cryptographic publisher signing. GPU RTX
+rendering and calibrated industrial machine twins remain unfinished.
+
+See [Multidomain milestone evidence](docs/MULTIDOMAIN_ENGINE_MILESTONE.md).
+
 ## Architectural principles
 
 1. **OpenUSD is authoritative**: metric units, Z-up, explicit references/layers, consistent machine and sensor identities. Never approximate a customer's CAD into generic boxes while claiming geometric equivalence.

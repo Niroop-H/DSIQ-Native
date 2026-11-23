@@ -67,6 +67,41 @@ class SampledCollisionTests(unittest.TestCase):
         )
         self.assertEqual(before,after)
 
+    def test_adaptive_interpolation_detects_thin_midpath_obstacle(self):
+        from dataclasses import replace
+        from dsiq_native.motion_collision import screen_imported_path
+        # Keep only endpoints, forcing a joint-space gap that a sampled-only
+        # checker could miss. Actual Bullet geometry is queried along it.
+        coarse=replace(self.plan,samples=(self.plan.samples[0],self.plan.samples[-1]))
+        obstacle=self.world.p.createCollisionShape(
+            self.world.p.GEOM_BOX,halfExtents=[.01,.01,.01],
+            physicsClientId=self.world.client
+        )
+        body=self.world.p.createMultiBody(
+            baseMass=0.,baseCollisionShapeIndex=obstacle,
+            basePosition=[-1.45,.9,1.3],physicsClientId=self.world.client,
+        )
+        p=self.world.p;cid=self.world.client
+        before=p.getBasePositionAndOrientation(body,physicsClientId=cid)
+        result=screen_imported_path(self.world,coarse,max_joint_step=.01)
+        self.assertFalse(result["collision_screen_passed"],result)
+        self.assertGreater(result["adaptive_sample_count"],2)
+        self.assertTrue(result["subdivision_applied"])
+        self.assertFalse(result["inter_sample_collision_guaranteed"])
+        self.assertTrue(result["world_snapshot_restored"])
+        self.assertEqual(before,p.getBasePositionAndOrientation(
+            body,physicsClientId=cid
+        ))
+
+    def test_adaptive_budget_fails_closed(self):
+        from dataclasses import replace
+        from dsiq_native.motion_collision import screen_imported_path
+        coarse=replace(self.plan,samples=(self.plan.samples[0],self.plan.samples[-1]))
+        with self.assertRaisesRegex(ValueError,"budget"):
+            screen_imported_path(
+                self.world,coarse,max_joint_step=.001,max_total_samples=100,
+            )
+
     def test_invalid_clearance_is_rejected(self):
         from dsiq_native.motion_collision import screen_imported_path
         for value in (-.1,.1,math.nan):

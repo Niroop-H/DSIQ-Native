@@ -153,14 +153,37 @@ def execute_imported_trajectory(world, plan: ImportedTrajectory,
     records=[]
     high_contacts=0
     violations=[]
+    max_measured_speed={name:0. for name in plan.names}
+    max_measured_effort={name:0. for name in plan.names}
+    speed_violations=[]
+    effort_violations=[]
     for i,targets in enumerate(plan.samples[1:],1):
         for name,target in zip(plan.names,targets):
             world.command_imported_joint(plan.asset_id,name,target)
         world.p.stepSimulation(physicsClientId=world.client)
         world.step_index+=1
-        current=tuple(float(world.p.getJointState(
+        states=tuple(world.p.getJointState(
             robot["body_id"],idx,physicsClientId=world.client
-        )[0]) for idx in plan.joint_indices)
+        ) for idx in plan.joint_indices)
+        current=tuple(float(state[0]) for state in states)
+        for name,state in zip(plan.names,states):
+            measured_speed=abs(float(state[1]))
+            measured_effort=abs(float(state[3]))
+            if not math.isfinite(measured_speed) or not math.isfinite(measured_effort):
+                raise ArithmeticError("Bullet motor feedback contains nonfinite velocity/effort")
+            max_measured_speed[name]=max(max_measured_speed[name],measured_speed)
+            max_measured_effort[name]=max(max_measured_effort[name],measured_effort)
+            limits=actual[name]
+            if measured_speed>limits["max_velocity"]*1.05+.001:
+                speed_violations.append({
+                    "step":i,"name":name,"measured_speed":measured_speed,
+                    "declared_limit":limits["max_velocity"],
+                })
+            if measured_effort>limits["max_effort"]*1.05+.001:
+                effort_violations.append({
+                    "step":i,"name":name,"measured_effort":measured_effort,
+                    "declared_limit":limits["max_effort"],
+                })
         if any(not math.isfinite(x) for x in current):
             raise ArithmeticError("Bullet motor yielded nonfinite state")
         error=max(abs(ref-got) for ref,got in zip(targets,current))
@@ -195,6 +218,11 @@ def execute_imported_trajectory(world, plan: ImportedTrajectory,
         "final_requested":dict(zip(plan.names,plan.goal)),
         "max_robot_contact_points_seen":high_contacts,
         "joint_limit_violations":violations,
+        "max_measured_joint_speed":max_measured_speed,
+        "max_solver_reported_motor_effort":max_measured_effort,
+        "velocity_limit_violations":speed_violations,
+        "motor_effort_limit_violations":effort_violations,
+        "actual_load_profile_independently_verified":False,
         "sampled_reports":records,
         "source_velocity_limits_used":True,
         "collision_free_certified":False,

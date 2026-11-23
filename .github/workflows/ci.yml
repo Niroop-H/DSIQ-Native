@@ -52,6 +52,8 @@ jobs:
           python -m dsiq_native machine-verify build/reference-scenes/user-gantry
           python -m dsiq_native bullet-usd-record build/reference-scenes/measured-motion.usda --frames 4 --steps-per-frame 12 --urdf-manifest build/reference-scenes/user-gantry/machine.manifest.json --joint actuator_x --target 0.25
           python -m dsiq_native usd-telemetry-inspect build/reference-scenes/measured-motion.usda
+          python -m dsiq_native usd-urdf-visual-record build/reference-scenes/user-gantry/machine.manifest.json build/reference-scenes/source-geometry-animation.usda --frames 4 --steps-per-frame 12 --joint actuator_x --target 0.25
+          python -m dsiq_native robot-policy-train build/reference-scenes/reference-policy.json --episodes 16 --horizon 10 --seed 1007
           python -m dsiq_native core-readiness > build/reference-scenes/core-readiness.json
           python -m dsiq_native workcell-new build/reference-scenes/reference.workcell.json --id review_robotics_cell --name "Unqualified CI reference cell" --manifest build/reference-scenes/user-gantry/machine.manifest.json
           python -m dsiq_native workcell-inspect build/reference-scenes/reference.workcell.json
@@ -154,9 +156,32 @@ jobs:
           Compress-Archive -Path "dist\DSIQ-Native\*" -DestinationPath "build\windows\DSIQ-Native-CPU-Preview-Windows.zip" -Force
           $sha = (Get-FileHash "build\windows\DSIQ-Native-CPU-Preview-Windows.zip" -Algorithm SHA256).Hash
           "$sha  DSIQ-Native-CPU-Preview-Windows.zip" | Out-File -FilePath "build\windows\SHA256SUMS.txt" -Encoding ascii
+          python -m dsiq_native release-attest "build\windows\DSIQ-Native-CPU-Preview-Windows.zip" "build\windows\release.attestation.json"
+          python -m dsiq_native release-verify "build\windows\DSIQ-Native-CPU-Preview-Windows.zip" "build\windows\release.attestation.json"
       - name: Upload independently smoke-tested executable preview
         uses: actions/upload-artifact@v4
         with:
           name: dsiq-native-windows-cpu-unsigned
           path: build/windows/
           retention-days: 7
+
+  ros2-jazzy-live-dds:
+    name: ROS 2 Jazzy live DDS transport from real Bullet capture
+    needs: openusd-integration
+    runs-on: ubuntu-latest
+    container:
+      image: ros:jazzy-ros-base
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dsiq-reference-scenes
+          path: build/reference-scenes
+      - name: Install ROS message packages and validate live DDS pub/sub
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs ros-jazzy-rosgraph-msgs ros-jazzy-geometry-msgs
+          source /opt/ros/jazzy/setup.bash
+          /usr/bin/python3 scripts/ros2_middleware_acceptance.py build/reference-scenes/ros2-preview-tf.json

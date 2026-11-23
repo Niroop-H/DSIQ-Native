@@ -252,6 +252,8 @@ def build_parser() -> argparse.ArgumentParser:
     urdfmotion.add_argument("--target",action="append",required=True,
         metavar="JOINT=VALUE",help="Repeat to command multiple named URDF axes")
     urdfmotion.add_argument("--duration",type=float,default=None)
+    urdfmotion.add_argument("--max-joint-step",type=float,default=.04,
+        help="Joint-space preflight interpolation limit; does NOT certify swept CCD")
     urdfmotion.add_argument("--clearance-m",type=float,default=.003,
         help="Required per-sample Bullet geometry separation; not continuous CCD")
     urdfmotion.add_argument("--record-every",type=int,default=24)
@@ -294,6 +296,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Inspect actual licensed URDF link masses, geometric parts and actuator declarations"
     )
     inventory.add_argument("manifest")
+    visual=sub.add_parser(
+        "usd-urdf-visual-record",
+        help="Animate EXACT source URDF box/cylinder/sphere visuals using actual Bullet link poses"
+    )
+    visual.add_argument("source_manifest")
+    visual.add_argument("scene_file")
+    visual.add_argument("--frames",type=int,default=8)
+    visual.add_argument("--steps-per-frame",type=int,default=12)
+    visual.add_argument("--joint",default=None)
+    visual.add_argument("--target",type=float,default=None)
+    train=sub.add_parser(
+        "robot-policy-train",
+        help="Train/measure small tabular Q-learning policy on actual Bullet reference gantry"
+    )
+    train.add_argument("output_json")
+    train.add_argument("--episodes",type=int,default=96)
+    train.add_argument("--horizon",type=int,default=24)
+    train.add_argument("--seed",type=int,default=1007)
+    rel_new=sub.add_parser(
+        "release-attest",help="Hash and inventory an unsigned Windows preview ZIP"
+    )
+    rel_new.add_argument("archive")
+    rel_new.add_argument("attestation")
+    rel_check=sub.add_parser(
+        "release-verify",help="Verify ZIP and all member bytes against a source attestation"
+    )
+    rel_check.add_argument("archive")
+    rel_check.add_argument("attestation")
     return p
 
 
@@ -302,7 +332,34 @@ def main(argv: list[str] | None = None) -> int:
     try:
         command = args.command
         code = 0
-        if command == "machine-inventory":
+        if command == "release-attest":
+            from .release_integrity import make_attestation
+            result=make_attestation(args.archive,args.attestation)
+        elif command == "release-verify":
+            from .release_integrity import verify_attestation
+            result=verify_attestation(args.archive,args.attestation)
+        elif command == "robot-policy-train":
+            from .robot_policy import train_gantry_q_policy
+            result=train_gantry_q_policy(
+                args.output_json,episodes=args.episodes,
+                steps_per_episode=args.horizon,seed=args.seed,
+            )
+        elif command == "usd-urdf-visual-record":
+            from .usd_urdf_visuals import record_urdf_visual_usd
+            from .bullet_runtime import BulletPlayground,BulletSettings
+            if (args.joint is None)!=(args.target is None):
+                raise ValueError("--joint and --target must be supplied together")
+            with BulletPlayground(BulletSettings(payload_count=0)) as world:
+                robot=world.import_urdf_robot(args.source_manifest)
+                if args.joint is not None:
+                    world.command_imported_joint(
+                        robot["asset_id"],args.joint,args.target
+                    )
+                result=record_urdf_visual_usd(
+                    world,args.source_manifest,args.scene_file,
+                    frames=args.frames,steps_per_frame=args.steps_per_frame,
+                )
+        elif command == "machine-inventory":
             from .machine_inventory import machine_inventory
             result=machine_inventory(args.manifest)
         elif command == "dataset-coco":
@@ -344,7 +401,8 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 from .motion_collision import screen_imported_path
                 clearance=screen_imported_path(
-                    world,plan,clearance_m=args.clearance_m
+                    world,plan,clearance_m=args.clearance_m,
+                    max_joint_step=args.max_joint_step,
                 )
                 if not clearance["collision_screen_passed"]:
                     raise ValueError(

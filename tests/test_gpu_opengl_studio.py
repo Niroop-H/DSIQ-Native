@@ -142,5 +142,42 @@ class MultiAssetRenderReuseAcceptance(unittest.TestCase):
                     benchmark_exact_geometry_instances(copies=count)
 
 
+@unittest.skipUnless(HAS_GL,"Use xvfb-run, Panda3D and DSIQ_GPU_CI=1")
+class VisualOnlyRenderScalingAcceptance(unittest.TestCase):
+    def test_large_graphics_only_reference_copies_are_exactly_labelled(self):
+        from dsiq_native.gpu_studio import benchmark_static_reference_scaling
+        result=benchmark_static_reference_scaling(
+            visual_copies=8,frames=18,width=480,height=360
+        )
+        self.assertEqual(result["actual_Bullet_imported_body_count"],1)
+        self.assertTrue(result["only_one_physically_simulated_robot"])
+        self.assertEqual(result["referenced_assemblies"],1)
+        self.assertEqual(result["static_graphic_reference_report"][
+            "static_visual_reference_copies_added"],8)
+        self.assertEqual(result["static_graphic_reference_report"][
+            "physical_robot_bodies_added"],0)
+        cache=result["render_resource_reuse"]
+        self.assertEqual(cache["static_reference_copy_count"],8)
+        self.assertEqual(cache["verified_source_visual_nodes"],9*17)
+        self.assertEqual(cache["distinct_bullet_assemblies"],1)
+        self.assertGreater(cache["reused_triangle_instances"],0)
+        self.assertGreater(result["triangles_in_gpu_scene"],
+                           result["physics_backed_source_triangles"])
+        self.assertEqual(
+            result["triangles_in_gpu_scene"],
+            9*result["physics_backed_source_triangles"],
+        )
+        self.assertFalse(cache["gpu_vram_saving_verified"])
+        self.assertTrue(result["not_vulkan_hydra_or_rtx"])
+        self.assertGreater(result["observed_fps"],0)
+
+    def test_graphics_only_count_is_constrained_before_opening_gl(self):
+        from dsiq_native.gpu_studio import benchmark_static_reference_scaling
+        for count in (0,513,True,-4,4.2):
+            with self.subTest(count=count):
+                with self.assertRaises(ValueError):
+                    benchmark_static_reference_scaling(visual_copies=count)
+
+
 if __name__=="__main__":
     unittest.main()

@@ -75,7 +75,7 @@ def _validate_path_against_loaded_robot(world, robot, plan: ImportedTrajectory) 
             robot["body_id"], index, physicsClientId=world.client,
         )[0])
         if not math.isfinite(observed) or abs(observed - reference) > 1e-3:
-            raise ValueError("Robot joint state changed since planning; replan first")
+            raise ValueError("Robot measured start state changed since planning; replan first")
     return float(plan.duration_s) / (len(plan.samples) - 1)
 
 def screen_imported_path(world, plan: ImportedTrajectory,

@@ -92,6 +92,7 @@ class RealWarpKernelAcceptance(unittest.TestCase):
         self.assertTrue(r["source_bounds_checked_for_all_environments"])
         self.assertFalse(r["execution_device_is_cuda"])
         self.assertFalse(r["actual_gpu_kernel_executed"])
+        self.assertFalse(r["cuda_memory_admission"]["cuda_admission_checked"])
         self.assertTrue(r["cpu_mode_is_explicit_semantic_oracle"])
         self.assertTrue(r["uses_real_warp_compiled_kernel"])
         self.assertFalse(r["hardware_qualified_on_requested_gpu"])

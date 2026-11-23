@@ -16,6 +16,7 @@ robotics = ["usd-core>=25.05", "numpy>=1.26,<2", "pybullet==3.2.7; platform_syst
 dev = ["usd-core>=25.05", "numpy>=1.26,<2", "pybullet==3.2.7; platform_system != 'Windows'", "pybullet-arm64==3.2.8; platform_system == 'Windows'"]
 cad = ["usd-core>=25.05", "trimesh>=4.4,<5", "numpy>=1.26,<2", "pybullet==3.2.7; platform_system != 'Windows'", "pybullet-arm64==3.2.8; platform_system == 'Windows'"]
 gpu = ["panda3d>=1.10.14,<1.11", "trimesh>=4.4,<5", "usd-core>=25.05", "numpy>=1.26,<2", "pybullet==3.2.7; platform_system != 'Windows'", "pybullet-arm64==3.2.8; platform_system == 'Windows'"]
+mujoco = ["mujoco>=3.3,<4", "numpy>=1.26,<2", "pybullet==3.2.7; platform_system != 'Windows'", "pybullet-arm64==3.2.8; platform_system == 'Windows'"]
 security = ["cryptography>=50,<51"]
 
 

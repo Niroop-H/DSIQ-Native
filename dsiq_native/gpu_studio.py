@@ -462,6 +462,11 @@ class GPUStudio:
             ) for name,entry in src.items()
         }
         old_keys=set(self._geometry_cache)
+        old_triangle_count=self._static_source_triangles
+        old_visual_count=self._static_visual_instances
+        old_root_count=len(self._static_visual_roots)
+        old_camera_center=self._center
+        old_camera_distance=self._distance
         created=[]
         try:
             for i in range(copies):
@@ -493,6 +498,12 @@ class GPUStudio:
                 node.removeNode()
             for key in set(self._geometry_cache)-old_keys:
                 del self._geometry_cache[key]
+            self._static_visual_roots=self._static_visual_roots[:old_root_count]
+            self._static_source_triangles=old_triangle_count
+            self._static_visual_instances=old_visual_count
+            self._center=old_camera_center
+            self._distance=old_camera_distance
+            self._set_camera()
             raise
         return {
             "schema":"dsiq-source-verified-visual-only-stress-v1",

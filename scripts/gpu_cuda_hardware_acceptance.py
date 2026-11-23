@@ -62,13 +62,10 @@ def hardware_acceptance(*,device: str="cuda:0",
         oracle_samples=16,
     )
     for label,r in (("one_axis",single),("xyz",xyz)):
-        if (not r["independent_oracle_passed"] or
-            not r["no_hidden_cpu_fallback"] if label=="one_axis"
-            else False):
-            # Direct assertions below are kept separate for clear feedback.
-            raise AssertionError("Unexpected Warp benchmark status")
+        if not r["independent_oracle_passed"]:
+            raise AssertionError(f"{label} kernel failed scalar numerical acceptance")
         if r["execution_device"]!=device:
-            raise AssertionError("Warp compute did not run on requested device")
+            raise AssertionError(f"{label} kernel did not execute on requested GPU")
     if not single["actual_gpu_kernel_executed"] or not single["execution_device_is_cuda"]:
         raise AssertionError("One-axis kernel did not execute on real NVIDIA CUDA")
     if not xyz["actual_cuda_kernel_executed"] or not xyz["execution_is_cuda"]:

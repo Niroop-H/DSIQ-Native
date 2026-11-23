@@ -56,6 +56,7 @@ class XYZWarpKernelConformance(unittest.TestCase):
         self.assertEqual(r["axes_per_env"],3)
         self.assertEqual(r["execution_device"],"cpu")
         self.assertFalse(r["actual_cuda_kernel_executed"])
+        self.assertFalse(r["cuda_memory_admission"]["cuda_admission_checked"])
         self.assertTrue(r["explicit_cpu_reference_mode"])
         self.assertTrue(r["warp_compiled_kernel_executed"])
         self.assertEqual(len(r["independent_oracle_samples"]),8)

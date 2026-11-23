@@ -142,6 +142,23 @@ class ExternalMotionComparisonTests(unittest.TestCase):
                 self.sim,self.observed,require_source_binding=True
             )
 
+    def test_malformed_json_roots_and_unhashable_joint_names_fail_closed(self):
+        self.observed.write_text(json.dumps(["not","a","measurement"]))
+        with self.assertRaisesRegex(ValueError,"JSON objects"):
+            compare_measured_robot_motion(self.sim,self.observed)
+        self.observed.write_text(json.dumps({
+            "schema":"dsiq-external-joint-measurements-v1",
+            "equipment_identifier":"test",
+            "instrument_identifier":"test",
+            "instrument_calibration_reference":"test",
+            "observations":[
+                {"joint":["nonhashable"],"time_s":.1,
+                 "measured_position":.1,"unit":"m"}
+            ]*3,
+        }))
+        with self.assertRaisesRegex(ValueError,"joint name"):
+            compare_measured_robot_motion(self.sim,self.observed)
+
     def test_bad_external_records_rejected(self):
         doc=json.loads(self.observed.read_text())
         doc["observations"][0]["joint"]="not_same_mechanism"

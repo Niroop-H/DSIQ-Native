@@ -52,6 +52,15 @@ def build_parser() -> argparse.ArgumentParser:
     validator.add_argument("--allow-noncanonical-units",action="store_true")
     validator.add_argument("--allow-no-default-prim",action="store_true")
 
+    dependency_audit = sub.add_parser(
+        "usd-dependency-audit",
+        help="Read-only Pixar OpenUSD layer, texture and source checksum dependency gate"
+    )
+    dependency_audit.add_argument("scene")
+    dependency_audit.add_argument("--asset-root", default=None)
+    dependency_audit.add_argument("--max-files",type=int,default=256)
+    dependency_audit.add_argument("--max-total-mib",type=int,default=256)
+
     attach = sub.add_parser("attach", help="Reference verified real USD assets")
     attach.add_argument("scene")
     attach.add_argument("manifest")
@@ -802,6 +811,13 @@ def main(argv: list[str] | None = None) -> int:
                 args.scene,max_prims=args.max_prims,
                 require_metric_z_up=not args.allow_noncanonical_units,
                 require_default_prim=not args.allow_no_default_prim,
+            )
+            code=0 if result["passed"] else 3
+        elif command == "usd-dependency-audit":
+            from .usd_dependency_audit import audit_usd_dependencies
+            result=audit_usd_dependencies(
+                args.scene,asset_root=args.asset_root,
+                max_files=args.max_files,max_total_bytes=args.max_total_mib*1024*1024,
             )
             code=0 if result["passed"] else 3
         elif command == "attach":

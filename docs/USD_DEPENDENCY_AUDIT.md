@@ -18,6 +18,7 @@ Safety budgets: **256 files**, **256 MiB total**, **96 MiB per file**, **128 err
 
 1. **USD resolver execution is not sandboxed.** `UsdUtils.ComputeAllDependencies` may call external `Ar` resolver plugins *before* DSIQ has approved a returned path. Only inspect trusted or separately sandboxed scenes. The reported allowed-local-root check does **not** stop a custom resolver from making network requests.
 2. It is not a replacement for a secure URI resolver, content trust validator, quarantined asset ingestion pipeline or package signature.
+   **Budget limits are applied to enumerated files after USD has resolved the graph.** They do not preempt the memory, runtime or network cost of resolver traversal. An untrusted USD file requires an isolated subprocess with its own timeout, resource limits, approved resolver and network policy before this command is suitable for automated ingestion.
 3. Archive-internal `.usdz` dependencies and dynamic/runtime-only lookups are **not** checked. Input USDZ fails explicitly.
 4. The audit is bounded and only covers dependencies returned by Pixar's graph resolver; it cannot guarantee all dynamic shader or extension runtime assets have been discovered.
 5. A file hash establishes a particular byte sequence, **not** an OEM CAD right, sensor calibration, asset physical fidelity or a particular renderer's material compatibility.

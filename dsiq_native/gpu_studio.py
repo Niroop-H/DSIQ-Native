@@ -751,6 +751,70 @@ class GPUStudio:
             self.base.destroy()
 
 
+def benchmark_exact_geometry_instances(*, copies: int=4, frames: int=48,
+                                       width: int=800, height: int=600,
+                                       screenshot: str|Path|None=None) -> dict:
+    """Run real OpenGL draw measurements on N independent verified gantries.
+
+    Each instance gets its own imported URDF/physical body and separate
+    NodePaths. An immutable source-identical Panda3D Geom buffer may be
+    shared between instances; the authored triangle/draw-instance count
+    always includes every independently positioned copy.
+    This does not fabricate a factory, prove VRAM savings, or use Hydra.
+    """
+    import math
+    if type(copies) is not int or not 2<=copies<=24:
+        raise ValueError("Geometry reuse benchmark requires 2..24 source machines")
+    app=GPUStudio(headless=True,width=width,height=height)
+    try:
+        from .machine_designer import MachineDesign, save_project
+        with tempfile.TemporaryDirectory(prefix="dsiq-gpu-instance-benchmark-") as root:
+            columns=math.ceil(math.sqrt(copies))
+            rows=math.ceil(copies/columns)
+            loaded=[]
+            start=time.perf_counter()
+            for idx in range(copies):
+                asset_id=f"render_reuse_{idx:03d}"
+                workcell=save_project(MachineDesign(asset_id=asset_id),
+                                      Path(root)/asset_id)
+                result=app.add_verified_machine(
+                    workcell["manifest"],
+                    base_position_m=(float(idx%columns)*2.2,
+                                     1.+float(idx//columns)*2.2,0.),
+                )
+                loaded.append({"asset_id":result["asset_id"],
+                               "parts":result["parts"],
+                               "source_triangles":result["triangles"]})
+            import_seconds=time.perf_counter()-start
+            app._center=((columns-1)*1.1,1.+(rows-1)*1.1,.85)
+            app._distance=max(5.5,3.3*max(columns,rows))
+            app._set_camera()
+            resource=app.render_resource_report()
+            if (resource["distinct_bullet_assemblies"]!=copies or
+                resource["total_authored_triangle_instances"]<=
+                    resource["unique_geom_buffer_triangles"] or
+                resource["verified_source_visual_nodes"]!=17*copies or
+                len({record["body_id"] for record in
+                     app.world.imported_robots.values()})!=copies):
+                raise AssertionError("Reference render-geometry reuse contract failed")
+            report=app.benchmark(frames=frames,screenshot=screenshot)
+            report.update({
+                "schema":"dsiq-source-identical-geom-reuse-benchmark-v1",
+                "fixture":"source_verified_self_authored_xyz_gantries_not_oem",
+                "authored_source_instances":loaded,
+                "assembly_import_wall_seconds":import_seconds,
+                "actual_distinct_Bullet_bodies":copies,
+                "source_render_cache":resource,
+                "measured_gpu_vram_savings":None,
+                "gpu_memory_reuse_not_process_measured":True,
+                "hydra_or_vulkan_renderer_implemented":False,
+                "real_omni_feature_parity_qualified":False,
+            })
+            return report
+    finally:
+        app.close()
+
+
 def benchmark_gpu_pipeline(*,frames=60,manifest=None,screenshot=None,
                            width=800,height=600):
     """Measured GL pipeline, never a synthetic GPU FPS number."""

@@ -382,6 +382,8 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("simulation_json")
     compare.add_argument("external_measurements_json")
     compare.add_argument("--tolerance",type=float,default=.005)
+    compare.add_argument("--require-source-binding",action="store_true",
+        help="Require a source URDF SHA256 match and loaded-URDF joint units in physical observations")
     compare.add_argument("--require-uncertainty",action="store_true",
         help="Require every physical observation to specify standard uncertainty and enforce |error|+k*u <= tolerance")
     compare.add_argument("--coverage-factor",type=float,default=2.0,
@@ -452,6 +454,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.simulation_json,args.external_measurements_json,
                 tolerance=args.tolerance,
                 require_uncertainty=args.require_uncertainty,
+                require_source_binding=args.require_source_binding,
                 coverage_factor=args.coverage_factor,
             )
             code=0 if (

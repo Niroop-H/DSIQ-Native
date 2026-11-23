@@ -432,6 +432,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Report SHA256 hashes for all imported URDF visual meshes; review before manifest edit"
     )
     lock.add_argument("manifest")
+    gpuinfo=sub.add_parser(
+        "gpu-compute-check",
+        help="Inspect actual NVIDIA Warp CUDA availability; never claim Mesa software GL is GPU compute"
+    )
+    gpuinfo.add_argument("--require-cuda",action="store_true",
+        help="Fail unless a usable real CUDA device is detected")
+    gpuvec=sub.add_parser(
+        "gpu-vector-benchmark",
+        help="Run true CUDA Warp 1-axis effective-mass gantry batch; no implicit CPU fallback"
+    )
+    gpuvec.add_argument("--envs",type=int,default=4096)
+    gpuvec.add_argument("--steps",type=int,default=240)
+    gpuvec.add_argument("--seed",type=int,default=1007)
+    gpuvec.add_argument("--device",default="cuda:0")
+    gpuvec.add_argument("--memory-mib-cap",type=int,default=64)
+    gpuvec.add_argument("--oracle-samples",type=int,default=8)
     vector=sub.add_parser(
         "robot-vector-benchmark",
         help="Measure CPU throughput of 1..8 isolated actual Bullet gantry learning environments"
@@ -507,6 +523,19 @@ def main(argv: list[str] | None = None) -> int:
         elif command == "release-sbom":
             from .release_sbom import build_spdx_inventory
             result=build_spdx_inventory(args.output_json)
+        elif command == "gpu-compute-check":
+            from .gpu_vector_gantry import inspect_warp_compute
+            result=inspect_warp_compute()
+            if args.require_cuda:
+                code=0 if result["cuda_available"] else 3
+        elif command == "gpu-vector-benchmark":
+            from .gpu_vector_gantry import benchmark_warp_reduced_order
+            result=benchmark_warp_reduced_order(
+                envs=args.envs,steps=args.steps,seed=args.seed,
+                device=args.device,memory_limit_mib=args.memory_mib_cap,
+                oracle_samples=args.oracle_samples,
+            )
+            code=0 if result["independent_oracle_passed"] else 3
         elif command == "robot-vector-benchmark":
             from .vector_learning import benchmark_vector_learning
             result=benchmark_vector_learning(

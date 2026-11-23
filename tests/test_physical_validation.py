@@ -51,6 +51,68 @@ class ExternalMotionComparisonTests(unittest.TestCase):
         )
         self.assertFalse(result["all_operator_tolerances_met"])
 
+    def test_uncertainty_guard_uses_conservative_residual_margin(self):
+        doc=json.loads(self.observed.read_text())
+        doc["joint_units"]={"actuator_x":"m"}
+        for row in doc["observations"]:
+            row["standard_uncertainty"]=.0001
+        self.observed.write_text(json.dumps(doc))
+        report=compare_measured_robot_motion(
+            self.sim,self.observed,tolerance=.002,require_uncertainty=True,
+        )
+        self.assertTrue(report["all_conservative_uncertainty_bounds_met"])
+        self.assertTrue(report["external_joint_unit_contract_present"])
+        self.assertTrue(report["standard_uncertainty_complete"])
+        self.assertFalse(report["measurement_clock_alignment_independently_verified"])
+        self.assertFalse(report["industrial_physics_calibrated"])
+        doc["observations"][0]["standard_uncertainty"]=.002
+        self.observed.write_text(json.dumps(doc))
+        failed=compare_measured_robot_motion(
+            self.sim,self.observed,tolerance=.002,require_uncertainty=True,
+        )
+        self.assertTrue(failed["all_operator_tolerances_met"])
+        self.assertFalse(failed["all_conservative_uncertainty_bounds_met"])
+
+    def test_partial_uncertainty_and_mixed_units_rejected(self):
+        doc=json.loads(self.observed.read_text())
+        doc["observations"][0]["standard_uncertainty"]=.0001
+        self.observed.write_text(json.dumps(doc))
+        with self.assertRaisesRegex(ValueError,"Every measurement"):
+            compare_measured_robot_motion(self.sim,self.observed)
+        doc["observations"][0].pop("standard_uncertainty")
+        doc["observations"][1]["unit"]="rad"
+        self.observed.write_text(json.dumps(doc))
+        with self.assertRaisesRegex(ValueError,"Mixed units"):
+            compare_measured_robot_motion(self.sim,self.observed)
+
+    def test_nonfinite_simulated_feedback_cannot_be_accepted(self):
+        import math
+        simulated=json.loads(self.sim.read_text())
+        simulated["tracking"]["sampled_reports"][1]["measured_joint_states"]["actuator_x"]=math.nan
+        self.sim.write_text(json.dumps(simulated))
+        with self.assertRaisesRegex(ValueError,"Nonfinite"):
+            compare_measured_robot_motion(self.sim,self.observed)
+
+    def test_faulted_simulation_is_ineligible_for_calibration(self):
+        simulated=json.loads(self.sim.read_text())
+        simulated["tracking"]["runtime_monitor_passed"]=False
+        self.sim.write_text(json.dumps(simulated))
+        with self.assertRaisesRegex(ValueError,"Faulted"):
+            compare_measured_robot_motion(self.sim,self.observed)
+
+    def test_declared_unit_contract_must_match_each_measurement(self):
+        doc=json.loads(self.observed.read_text())
+        doc["joint_units"]={"actuator_x":"rad"}
+        self.observed.write_text(json.dumps(doc))
+        with self.assertRaisesRegex(ValueError,"source unit contract"):
+            compare_measured_robot_motion(self.sim,self.observed)
+
+    def test_strict_uncertainty_requires_original_instrument_data(self):
+        with self.assertRaisesRegex(ValueError,"standard_uncertainty"):
+            compare_measured_robot_motion(
+                self.sim,self.observed,require_uncertainty=True,
+            )
+
     def test_bad_external_records_rejected(self):
         doc=json.loads(self.observed.read_text())
         doc["observations"][0]["joint"]="not_same_mechanism"

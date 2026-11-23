@@ -168,9 +168,11 @@ def audit_usd_dependencies(
             "max_single_file_bytes":MAX_FILE_BYTES,
             "usdz_packages_not_inspected":True,
             "external_ar_resolvers_not_sandboxed":True,
+            "asset_count_and_size_budgets_apply_after_usd_resolution":True,
         },
         "limitations":[
             "OpenUSD Ar resolver may run before paths are approved; use a sandbox for untrusted scenes",
+            "OpenUSD dependency traversal itself is not preemptively bounded by these post-resolution file/byte limits",
             "Resolver enumeration alone cannot verify contents of unloaded USDZ packages",
             "Source SHA-256 establishes bytes, not machine calibration or rights ownership",
         ],

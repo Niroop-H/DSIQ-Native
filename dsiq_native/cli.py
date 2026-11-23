@@ -399,6 +399,15 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("--screenshot",default=None)
     bench.add_argument("--min-fps",type=float,default=None)
     bench.add_argument("--require-nvidia",action="store_true")
+    reuse=sub.add_parser(
+        "gpu-instancing-benchmark",
+        help="Measure real OpenGL exact CAD buffer reuse for multiple independent Bullet gantries"
+    )
+    reuse.add_argument("--copies",type=int,default=4)
+    reuse.add_argument("--frames",type=int,default=48)
+    reuse.add_argument("--width",type=int,default=800)
+    reuse.add_argument("--height",type=int,default=600)
+    reuse.add_argument("--screenshot",default=None)
     cad=sub.add_parser(
         "cad-usd-record",
         help="Export licensed hash-locked URDF triangle meshes with measured Bullet link animation"
@@ -544,6 +553,13 @@ def main(argv: list[str] | None = None) -> int:
                 if not result["nvidia_gl_and_device_verified"]:
                     code=3
             result["industrial_qualification_ready"]=False
+        elif command == "gpu-instancing-benchmark":
+            from .gpu_studio import benchmark_exact_geometry_instances
+            result=benchmark_exact_geometry_instances(
+                copies=args.copies,frames=args.frames,
+                width=args.width,height=args.height,
+                screenshot=args.screenshot,
+            )
         elif command == "cad-mesh-lock":
             from .cad_geometry import lock_mesh_hashes
             result=lock_mesh_hashes(args.manifest)

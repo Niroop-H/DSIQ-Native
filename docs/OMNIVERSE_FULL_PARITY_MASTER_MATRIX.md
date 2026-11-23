@@ -17,12 +17,12 @@
 | Feature family | Verified / bounded implementation | Full program target and next independently testable milestone |
 | --- | --- | --- |
 | 1. OpenUSD core | Stage, layers, references, variants, telemetry, scene profile | Payload streaming, composition correctness, purpose/visibility, instancing, collections, schema support; large multi-layer fixture |
-| 2. Asset validation and provenance | Source hash/rights checks and read-only USD mesh/physics/material structure validator | Versioned pluggable validation rules, missing-asset path checks, remote namespace resolver; adversarial USD corpus |
+| 2. Asset validation and provenance | Source hash/rights checks, read-only USD mesh/physics/material validator and resolved local dependency-hash gate | Versioned pluggable validation rules, missing-asset path checks, remote namespace resolver; adversarial USD corpus |
 | 3. High-end renderer | Panda3D real OpenGL raster editor and TinyRenderer CPU | Hydra/Vulkan raster PBR + advanced materials and shadows, hardware ray tracing, denoising and path tracing; actual GPU traces |
 | 4. Physics engines | C++ Bullet via PyBullet and optional real MuJoCo CPU adapter; independent solver reports | Newton, PhysX, GPU-batched solver, deformables/particles, stable friction/contact parity; matched numerical benchmarks |
 | 5. Robotics and articulated machines | Source-verified URDF and real CPU motor actuation, preflight limits, motion analysis | Collision-checked articulated planning, robot controllers and hardware-safe interfaces; real OEM measurements |
 | 6. Physical AI | Seeded Bullet reference policy and basic randomized environments | GPU/vector RL, imitation learning, policy export, task learning, sim-to-real benchmarks with held-out calibration |
-| 7. Sensors | Bullet RGB-D and idealized LiDAR, measured read-only ROS 2 transport | Render-consistent cameras, radar, LiDAR, IMU and calibration/noise/time-sync; reproducible sensor residuals |
+| 7. Sensors | Bullet RGB-D, idealized LiDAR, link-COM inertial probe with actual solver velocity and finite-difference force, read-only ROS 2 transport | Render-consistent cameras, radar, LiDAR, IMU and calibration/noise/time-sync; reproducible sensor residuals |
 | 8. Synthetic data | Seeded CPU generator, COCO export and SHA checks | Camera/depth/normals/semantic instance AOVs, material and lighting randomization graph, KITTI/YOLO/BOP export |
 | 9. CAD / interop | Rights-checked URDF, geometry meshes and USD | STEP/IGES kernel, Blender/glTF/FBX, authoring constraints, CAD tessellation accuracy and assembly round trip |
 | 10. Material and lighting | Basic native GPU-lit source geometry | USDShade/MaterialX, calibrated PBR, texture pipeline, IBL and consistent renderer output |

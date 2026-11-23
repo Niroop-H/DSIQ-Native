@@ -102,6 +102,7 @@ def run(output_directory: str = "build/ui-demo") -> dict:
                 ("stop_physics", 13.8),
             ]
             next_checkpoint = 0
+            real_imu_value_shown=False
             began = time.monotonic()
             while True:
                 elapsed = time.monotonic() - began
@@ -151,6 +152,8 @@ def run(output_directory: str = "build/ui-demo") -> dict:
                     elif action == "bullet_motor":
                         app.world.command_imported_joint(aid,"actuator_x",.25)
                         app.world.command_imported_joint(aid,"actuator_y",.10)
+                        if not app.toggle_imu_overlay()["enabled"]:
+                            raise AssertionError("Real native IMU overlay did not enable")
                         app.toggle_play()
                     elif action == "closer_view":
                         app._distance=3.1
@@ -166,8 +169,12 @@ def run(output_directory: str = "build/ui-demo") -> dict:
                     app._yaw += .32
                     app._set_camera()
                 app.base.taskMgr.step()
+                if ("SPECIFIC FORCE [m/s2]" in app._imu_label["text"]):
+                    real_imu_value_shown=True
                 time.sleep(.04)
 
+            if not real_imu_value_shown:
+                raise AssertionError("Live Bullet IMU sensor did not present valid data in recording")
             exit_code = ffmpeg.wait(timeout=30)
             if exit_code != 0:
                 details = (ffmpeg.stderr.read() or b"").decode("utf8","replace")
@@ -204,6 +211,7 @@ def run(output_directory: str = "build/ui-demo") -> dict:
                 "on_screen_hierarchy_controls": len(app._hierarchy_controls),
                 "real_transform_move_and_undo_redo_tested": True,
                 "metric_5mm_grid_snap_and_undo_tested": True,
+                "real_bullet_com_imu_overlay_rendered": real_imu_value_shown,
                 "simulation_engine": "PyBullet",
                 "measured_initial_actuator_x_m": initial_joint,
                 "measured_final_actuator_x_m": final_joint,

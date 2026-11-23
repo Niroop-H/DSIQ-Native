@@ -112,6 +112,37 @@ jobs:
       - run: python -m dsiq_native robot-urdf-motion build/runtime-gantry/machine.manifest.json --target actuator_x=0.25 --target actuator_y=0.10
       - run: python -m dsiq_native ros2-preview --steps-per-frame 12 --lidar-rays 24
 
+  mujoco-conformance-ubuntu:
+    name: Actual MuJoCo CPU / Bullet two-solver source-bound conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install real MuJoCo and Bullet native solver bindings
+        run: |
+          python -m pip install -e ".[mujoco]"
+          python -c "import mujoco,pybullet; print('Both genuine solvers import')"
+      - name: Test actual isolated source-verified MuJoCo world
+        run: python -m unittest discover -s tests -p test_mujoco_backend.py -v
+      - name: Test structural physics backend contract with both solvers present
+        run: python -m unittest discover -s tests -p test_physics_backend.py -v
+      - name: Run actual MuJoCo source-verified conformance JSON
+        run: |
+          mkdir -p build/physics-comparison
+          python -m dsiq_native physics-backend-check --backend mujoco_cpu_direct_v1 > build/physics-comparison/mujoco-conformance.json
+          python -m dsiq_native physics-cross-backend-check --tolerance 0.12 > build/physics-comparison/actual-bullet-mujoco-comparison.json
+          python -c 'import json; r=json.load(open("build/physics-comparison/actual-bullet-mujoco-comparison.json")); assert r["passed"] and len(r["individual_backend_conformance"])==2 and not r["same_oem_calibration_or_solver_equivalence_proven"]'
+      - name: Archive independently inspectable two-solver residual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsiq-two-real-physics-solvers
+          path: build/physics-comparison/
+          retention-days: 7
+
   desktop-linux-xvfb:
     name: Actual Tk desktop smoke test (virtual display)
     runs-on: ubuntu-latest

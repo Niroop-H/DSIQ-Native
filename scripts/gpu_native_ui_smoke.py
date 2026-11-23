@@ -35,6 +35,18 @@ def run():
                        if x["asset_id"]==result["asset_id"])["position_m"]
             if abs(after[0]-before[0])>1e-7:
                 raise AssertionError("On-screen CAD transform undo did not restore Bullet pose")
+            # Actual interactive GUI grid snapping runs against the Bullet base
+            # pose, and undo must restore the exact source-geometry placement.
+            app.set_grid_snap(.005)
+            snapped=app.move_selected(.025,0,0)
+            if abs(snapped["position_m"][0]-(before[0]+.005))>1e-7:
+                raise AssertionError("Native editor 5 mm grid snapping failed")
+            app.undo()
+            restored=next(x for x in app.editor.entities()
+                          if x["asset_id"]==result["asset_id"])["position_m"]
+            if abs(restored[0]-before[0])>1e-7:
+                raise AssertionError("Snapped real transform undo did not restore pose")
+            app.set_grid_snap(0.)
             for _ in range(18):
                 app.base.taskMgr.step()
             if not app.base.win or not app.base.win.isValid():
@@ -45,6 +57,7 @@ def run():
                 "hierarchy_control_count":len(app._hierarchy_controls),
                 "source_triangles":app._triangles,
                 "undo_restores_simulated_base_pose":True,
+                "native_metric_grid_snap_passed":True,
                 "RTX3050_hardware_test":False,
             })
         finally:

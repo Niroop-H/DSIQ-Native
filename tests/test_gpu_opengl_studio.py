@@ -33,9 +33,30 @@ class OpenGLWorkcellStudioAcceptance(unittest.TestCase):
             app=GPUStudio(headless=True,width=640,height=480)
             try:
                 first=app.add_verified_machine(a["manifest"])
+                first_cache=app.render_resource_report()
                 second=app.add_verified_machine(
                     b["manifest"],base_position_m=(2.,1.,0.)
                 )
+                second_cache=app.render_resource_report()
+                self.assertEqual(
+                    second_cache["unique_geom_buffer_objects"],
+                    first_cache["unique_geom_buffer_objects"],
+                )
+                self.assertEqual(
+                    second_cache["unique_geom_buffer_triangles"],
+                    first_cache["unique_geom_buffer_triangles"],
+                )
+                self.assertEqual(
+                    second_cache["total_authored_triangle_instances"],
+                    2*first_cache["total_authored_triangle_instances"],
+                )
+                self.assertGreater(second_cache["reused_triangle_instances"],0)
+                self.assertEqual(second_cache["verified_source_visual_nodes"],34)
+                self.assertEqual(second_cache["distinct_bullet_assemblies"],2)
+                self.assertEqual(
+                    len({x["body_id"] for x in app.world.imported_robots.values()}),2
+                )
+                self.assertFalse(second_cache["gpu_vram_saving_verified"])
                 self.assertEqual(first["parts"],17)
                 self.assertEqual(second["parts"],17)
                 self.assertGreater(first["triangles"],200)
@@ -69,6 +90,14 @@ class OpenGLWorkcellStudioAcceptance(unittest.TestCase):
                 frame=app.benchmark(frames=24,screenshot=image)
                 self.assertEqual(frame["renderer"],"Panda3D_OpenGL_rasterization")
                 self.assertEqual(frame["referenced_assemblies"],2)
+                self.assertEqual(
+                    frame["render_resource_reuse"]["unique_geom_buffer_objects"],
+                    first_cache["unique_geom_buffer_objects"],
+                )
+                self.assertEqual(
+                    frame["render_resource_reuse"]["reused_triangle_instances"],
+                    second_cache["reused_triangle_instances"],
+                )
                 self.assertGreater(frame["triangles_in_gpu_scene"],400)
                 self.assertGreater(frame["elapsed_wall_seconds"],0.)
                 self.assertGreater(frame["observed_fps"],0.)
